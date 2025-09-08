@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-File RAG Upload System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.1);
+        }
+
+        .card h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .file-input {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-input:hover {
+            border-color: #667eea;
+            background: #e3f2fd;
+        }
+
+        .file-input.dragover {
+            border-color: #667eea;
+            background: #e3f2fd;
+            transform: scale(1.02);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        .response.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .response.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .file-list {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .file-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .health-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 20px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .health-status.healthy {
+            background: #28a745;
+        }
+
+        .health-status.unhealthy {
+            background: #dc3545;
+        }
+
+        .search-section {
+            grid-column: 1 / -1;
+            background: #fff3cd;
+            border: 2px solid #ffeaa7;
+        }
+
+        .url-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .feature-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin: 2px;
+        }
+
+        .supported-formats {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="health-status" id="healthStatus">Checking...</div>
+
+    <div class="container">
+        <h1>🚀 Multi-File RAG Upload System</h1>
+
+        <div class="grid">
+            <!-- Multi-File Upload -->
+            <div class="card">
+                <h3>📁 Multi-File Upload</h3>
+                <form id="multiFileForm">
+                    <div class="form-group">
+                        <label for="multiAccountId">Account ID:</label>
+                        <input type="number" class="form-control" id="multiAccountId" value="123" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Select Files:</label>
+                        <div class="file-input" onclick="document.getElementById('multiFiles').click()">
+                            <input type="file" id="multiFiles" multiple accept=".pdf,.txt,.doc,.docx,.xls,.xlsx"
+                                style="display: none;">
+                            <p>📁 Click to select files or drag & drop</p>
+                            <div class="supported-formats">
+                                <span class="feature-badge">PDF</span>
+                                <span class="feature-badge">TXT</span>
+                                <span class="feature-badge">DOC</span>
+                                <span class="feature-badge">DOCX</span>
+                                <span class="feature-badge">XLS</span>
+                                <span class="feature-badge">XLSX</span>
+                            </div>
+                        </div>
+                        <div class="file-list" id="multiFileList"></div>
+                    </div>
+
+                    <button type="submit" class="btn">Upload Files</button>
+
+                    <div class="progress-container" id="multiProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="response" id="multiResponse"></div>
+                </form>
+            </div>
+
+            <!-- URL Processing -->
+            <div class="card">
+                <h3>🌐 URL Processing</h3>
+                <form id="urlForm">
+                    <div class="form-group">
+                        <label for="urlAccountId">Account ID:</label>
+                        <input type="number" class="form-control" id="urlAccountId" value="123" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="urls">URLs (one per line):</label>
+                        <textarea class="form-control url-textarea" id="urls"
+                            placeholder="https://example.com&#10;https://another-site.com" required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn">Process URLs</button>
+
+                    <div class="progress-container" id="urlProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="response" id="urlResponse"></div>
+                </form>
+            </div>
+
+            <!-- Mixed Content -->
+            <div class="card">
+                <h3>🔄 Mixed Content (Files + URLs)</h3>
+                <form id="mixedForm">
+                    <div class="form-group">
+                        <label for="mixedAccountId">Account ID:</label>
+                        <input type="number" class="form-control" id="mixedAccountId" value="123" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Select Files:</label>
+                        <div class="file-input" onclick="document.getElementById('mixedFiles').click()">
+                            <input type="file" id="mixedFiles" multiple accept=".pdf,.txt,.doc,.docx,.xls,.xlsx"
+                                style="display: none;">
+                            <p>📁 Click to select files or drag & drop</p>
+                        </div>
+                        <div class="file-list" id="mixedFileList"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mixedUrls">URLs (one per line):</label>
+                        <textarea class="form-control url-textarea" id="mixedUrls"
+                            placeholder="https://example.com&#10;https://another-site.com"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fileUrl">File URL (direct download):</label>
+                        <input type="url" class="form-control" id="fileUrl"
+                            placeholder="https://example.com/document.pdf">
+                    </div>
+
+                    <button type="submit" class="btn">Process Mixed Content</button>
+
+                    <div class="progress-container" id="mixedProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="response" id="mixedResponse"></div>
+                </form>
+            </div>
+
+            <!-- Enhanced Search -->
+            <div class="card search-section">
+                <h3>🔍 Enhanced Search System</h3>
+                <form id="searchForm">
+                    <div class="form-group">
+                        <label for="searchAccountId">Account ID:</label>
+                        <input type="number" class="form-control" id="searchAccountId" value="123" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="searchQuery">Search Query:</label>
+                        <input type="text" class="form-control" id="searchQuery"
+                            placeholder="Enter your search query..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="searchMethod">Search Method:</label>
+                        <select class="form-control" id="searchMethod">
+                            <option value="hybrid">🔀 Hybrid (Vector + Database)</option>
+                            <option value="vector">🎯 Vector Similarity</option>
+                            <option value="database">🗃️ Database Text Search</option>
+                            <option value="keyword">🔤 Keyword Search</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="searchLimit">Results Limit:</label>
+                        <input type="number" class="form-control" id="searchLimit" value="10" min="1" max="50">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Filters:</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <select class="form-control" id="sourceTypeFilter">
+                                <option value="">All Source Types</option>
+                                <option value="file">📁 Files</option>
+                                <option value="url">🌐 URLs</option>
+                                <option value="file_url">🔗 File URLs</option>
+                                <option value="mixed">🔄 Mixed</option>
+                            </select>
+                            <select class="form-control" id="fileTypeFilter">
+                                <option value="">All File Types</option>
+                                <option value=".pdf">📄 PDF</option>
+                                <option value=".txt">📝 TXT</option>
+                                <option value=".docx">📘 DOCX</option>
+                                <option value=".xlsx">📊 XLSX</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn">🔍 Search</button>
+
+                    <div class="response" id="searchResponse"></div>
+                </form>
+            </div>
+
+            <!-- Document Management -->
+            <div class="card">
+                <h3>📊 Document Management</h3>
+
+                <div class="form-group">
+                    <label for="docAccountId">Account ID:</label>
+                    <input type="number" class="form-control" id="docAccountId" value="123" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                    <button type="button" class="btn" onclick="getDocuments()">📄 Get Documents</button>
+                    <button type="button" class="btn" onclick="getStats()">📈 Get Statistics</button>
+                </div>
+
+                <div class="form-group">
+                    <label>Document Filters:</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                        <select class="form-control" id="docSourceType">
+                            <option value="">All Sources</option>
+                            <option value="file">Files</option>
+                            <option value="url">URLs</option>
+                            <option value="file_url">File URLs</option>
+                        </select>
+                        <input type="date" class="form-control" id="docDateFrom" placeholder="From Date">
+                        <input type="date" class="form-control" id="docDateTo" placeholder="To Date">
+                    </div>
+                </div>
+
+                <div class="response" id="docResponse"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/multi-rag';
+
+        // Health Check
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                const status = document.getElementById('healthStatus');
+
+                if (data.success) {
+                    status.textContent = '✅ Healthy';
+                    status.className = 'health-status healthy';
+                } else {
+                    status.textContent = '❌ Unhealthy';
+                    status.className = 'health-status unhealthy';
+                }
+            } catch (error) {
+                const status = document.getElementById('healthStatus');
+                status.textContent = '❌ Error';
+                status.className = 'health-status unhealthy';
+            }
+        }
+
+        // File drag and drop
+        function setupDragAndDrop(inputId, containerId) {
+            const container = document.querySelector(`#${containerId} .file-input`);
+            const input = document.getElementById(inputId);
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                container.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                container.addEventListener(eventName, () => container.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                container.addEventListener(eventName, () => container.classList.remove('dragover'), false);
+            });
+
+            container.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                input.files = files;
+                updateFileList(input, `${inputId.replace('Files', 'FileList')}`);
+            }, false);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Update file list display
+        function updateFileList(input, listId) {
+            const listContainer = document.getElementById(listId);
+            if (!listContainer) return;
+
+            listContainer.innerHTML = '';
+
+            if (input.files.length > 0) {
+                Array.from(input.files).forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.textContent = `📄 ${file.name} (${formatFileSize(file.size)})`;
+                    listContainer.appendChild(fileItem);
+                });
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Progress bar utilities
+        function showProgress(progressId) {
+            const progress = document.getElementById(progressId);
+            progress.style.display = 'block';
+            progress.querySelector('.progress-fill').style.width = '0%';
+        }
+
+        function updateProgress(progressId, percent) {
+            const progressFill = document.querySelector(`#${progressId} .progress-fill`);
+            progressFill.style.width = `${percent}%`;
+        }
+
+        function hideProgress(progressId) {
+            const progress = document.getElementById(progressId);
+            progress.style.display = 'none';
+        }
+
+        // Response display utilities
+        function showResponse(responseId, data, isError = false) {
+            const response = document.getElementById(responseId);
+            response.textContent = JSON.stringify(data, null, 2);
+            response.className = `response ${isError ? 'error' : 'success'}`;
+            response.style.display = 'block';
+        }
+
+        // Multi-file upload
+        document.getElementById('multiFileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const accountId = document.getElementById('multiAccountId').value;
+            const files = document.getElementById('multiFiles').files;
+
+            if (!files.length) {
+                alert('Please select at least one file');
+                return;
+            }
+
+            formData.append('account_id', accountId);
+            Array.from(files).forEach(file => {
+                formData.append('files', file);
+            });
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading...';
+
+            showProgress('multiProgress');
+            updateProgress('multiProgress', 30);
+
+            try {
+                const response = await fetch(`${API_BASE}/upload-multi`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                updateProgress('multiProgress', 100);
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResponse('multiResponse', data);
+                } else {
+                    showResponse('multiResponse', data, true);
+                }
+            } catch (error) {
+                showResponse('multiResponse', { error: error.message }, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload Files';
+                setTimeout(() => hideProgress('multiProgress'), 1000);
+            }
+        });
+
+        // URL processing
+        document.getElementById('urlForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const accountId = document.getElementById('urlAccountId').value;
+            const urlsText = document.getElementById('urls').value;
+            const urls = urlsText.split('\n').filter(url => url.trim()).map(url => url.trim());
+
+            if (!urls.length) {
+                alert('Please enter at least one URL');
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            showProgress('urlProgress');
+            updateProgress('urlProgress', 30);
+
+            try {
+                const response = await fetch(`${API_BASE}/process-urls`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        account_id: accountId,
+                        urls: urls
+                    })
+                });
+
+                updateProgress('urlProgress', 100);
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResponse('urlResponse', data);
+                } else {
+                    showResponse('urlResponse', data, true);
+                }
+            } catch (error) {
+                showResponse('urlResponse', { error: error.message }, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Process URLs';
+                setTimeout(() => hideProgress('urlProgress'), 1000);
+            }
+        });
+
+        // Mixed content processing
+        document.getElementById('mixedForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const accountId = document.getElementById('mixedAccountId').value;
+            const files = document.getElementById('mixedFiles').files;
+            const urlsText = document.getElementById('mixedUrls').value;
+            const fileUrl = document.getElementById('fileUrl').value;
+
+            const urls = urlsText.split('\n').filter(url => url.trim()).map(url => url.trim());
+
+            if (!files.length && !urls.length && !fileUrl) {
+                alert('Please provide at least one file, URL, or file URL');
+                return;
+            }
+
+            formData.append('account_id', accountId);
+
+            Array.from(files).forEach(file => {
+                formData.append('files', file);
+            });
+
+            if (urls.length) {
+                formData.append('urls', JSON.stringify(urls));
+            }
+
+            if (fileUrl) {
+                formData.append('file_url', fileUrl);
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            showProgress('mixedProgress');
+            updateProgress('mixedProgress', 30);
+
+            try {
+                const response = await fetch(`${API_BASE}/process-mixed`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                updateProgress('mixedProgress', 100);
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResponse('mixedResponse', data);
+                } else {
+                    showResponse('mixedResponse', data, true);
+                }
+            } catch (error) {
+                showResponse('mixedResponse', { error: error.message }, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Process Mixed Content';
+                setTimeout(() => hideProgress('mixedProgress'), 1000);
+            }
+        });
+
+        // Enhanced Search
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const accountId = document.getElementById('searchAccountId').value;
+            const query = document.getElementById('searchQuery').value;
+            const limit = document.getElementById('searchLimit').value;
+            const searchMethod = document.getElementById('searchMethod').value;
+            const sourceType = document.getElementById('sourceTypeFilter').value;
+            const fileType = document.getElementById('fileTypeFilter').value;
+
+            const filters = {};
+            if (sourceType) filters.source_type = sourceType;
+            if (fileType) filters.file_type = fileType;
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Searching...';
+
+            try {
+                const response = await fetch(`${API_BASE}/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        account_id: accountId,
+                        query: query,
+                        limit: limit,
+                        search_method: searchMethod,
+                        filters: filters
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Enhanced response display with search method info
+                    const enhancedData = {
+                        ...data,
+                        search_info: {
+                            method_used: searchMethod,
+                            filters_applied: Object.keys(filters).length > 0 ? filters : 'None',
+                            timestamp: new Date().toISOString()
+                        }
+                    };
+                    showResponse('searchResponse', enhancedData);
+                } else {
+                    showResponse('searchResponse', data, true);
+                }
+            } catch (error) {
+                showResponse('searchResponse', { error: error.message }, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🔍 Search';
+            }
+        });
+
+        // Document Management Functions
+        async function getDocuments() {
+            const accountId = document.getElementById('docAccountId').value;
+            const sourceType = document.getElementById('docSourceType').value;
+            const dateFrom = document.getElementById('docDateFrom').value;
+            const dateTo = document.getElementById('docDateTo').value;
+
+            if (!accountId) {
+                alert('Please enter Account ID');
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    limit: '20',
+                    offset: '0'
+                });
+
+                if (sourceType) params.append('source_type', sourceType);
+                if (dateFrom) params.append('date_from', dateFrom);
+                if (dateTo) params.append('date_to', dateTo);
+
+                const response = await fetch(`${API_BASE}/documents/${accountId}?${params}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResponse('docResponse', data);
+                } else {
+                    showResponse('docResponse', data, true);
+                }
+            } catch (error) {
+                showResponse('docResponse', { error: error.message }, true);
+            }
+        }
+
+        async function getStats() {
+            const accountId = document.getElementById('docAccountId').value;
+
+            if (!accountId) {
+                alert('Please enter Account ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/stats/${accountId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResponse('docResponse', data);
+                } else {
+                    showResponse('docResponse', data, true);
+                }
+            } catch (error) {
+                showResponse('docResponse', { error: error.message }, true);
+            }
+        }        // File input change handlers
+        document.getElementById('multiFiles').addEventListener('change', function () {
+            updateFileList(this, 'multiFileList');
+        });
+
+        document.getElementById('mixedFiles').addEventListener('change', function () {
+            updateFileList(this, 'mixedFileList');
+        });
+
+        // Setup drag and drop
+        setupDragAndDrop('multiFiles', 'multiFileForm');
+        setupDragAndDrop('mixedFiles', 'mixedForm');
+
+        // Initialize
+        checkHealth();
+        setInterval(checkHealth, 30000); // Check every 30 seconds
+    </script>
+</body>
+
+</html>

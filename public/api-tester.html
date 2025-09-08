@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiral RAG API Tester</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .endpoint {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+
+        .post {
+            background-color: #28a745;
+        }
+
+        .get {
+            background-color: #007bff;
+        }
+
+        .delete {
+            background-color: #dc3545;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px 5px 10px 0;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .response {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .success {
+            border-color: #28a745;
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            color: #007bff;
+        }
+
+        .file-info {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🤖 Wiral RAG API Tester</h1>
+        <p>Test the RAG (Retrieval-Augmented Generation) service endpoints directly from your browser.</p>
+
+        <!-- Health Check -->
+        <div class="endpoint">
+            <h2><span class="method get">GET</span> Health Check</h2>
+            <button onclick="checkHealth()">Check System Health</button>
+            <button onclick="checkRagHealth()">Check RAG Health</button>
+            <div id="health-response" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Upload Document -->
+        <div class="endpoint">
+            <h2><span class="method post">POST</span> Upload Document</h2>
+            <div class="form-group">
+                <label for="upload-account-id">Account ID *</label>
+                <input type="text" id="upload-account-id" placeholder="e.g., 12345" value="test-account">
+            </div>
+
+            <div class="two-column">
+                <div class="form-group">
+                    <label for="upload-title">Title</label>
+                    <input type="text" id="upload-title" placeholder="Document title">
+                </div>
+                <div class="form-group">
+                    <label for="upload-description">Description</label>
+                    <input type="text" id="upload-description" placeholder="Document description">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="upload-file">File (PDF or TXT, max 10MB) *</label>
+                <input type="file" id="upload-file" accept=".pdf,.txt"
+                    onchange="showFileInfo('upload-file', 'upload-file-info')">
+                <div id="upload-file-info" class="file-info"></div>
+            </div>
+
+            <button onclick="uploadDocument()" id="upload-btn">Upload Document</button>
+            <div id="upload-response" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- List Documents -->
+        <div class="endpoint">
+            <h2><span class="method get">GET</span> List Documents</h2>
+            <div class="form-group">
+                <label for="list-account-id">Account ID *</label>
+                <input type="text" id="list-account-id" placeholder="e.g., 12345" value="test-account">
+            </div>
+            <button onclick="listDocuments()">List Documents</button>
+            <div id="list-response" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Search Documents -->
+        <div class="endpoint">
+            <h2><span class="method post">POST</span> Search Documents</h2>
+            <div class="form-group">
+                <label for="search-account-id">Account ID *</label>
+                <input type="text" id="search-account-id" placeholder="e.g., 12345" value="test-account">
+            </div>
+
+            <div class="two-column">
+                <div class="form-group">
+                    <label for="search-query">Search Query *</label>
+                    <input type="text" id="search-query" placeholder="e.g., How to reset password?">
+                </div>
+                <div class="form-group">
+                    <label for="search-limit">Limit</label>
+                    <input type="number" id="search-limit" placeholder="10" value="5" min="1" max="50">
+                </div>
+            </div>
+
+            <button onclick="searchDocuments()">Search Documents</button>
+            <div id="search-response" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Delete Account Data -->
+        <div class="endpoint">
+            <h2><span class="method delete">DELETE</span> Delete Account Data</h2>
+            <div class="form-group">
+                <label for="delete-account-id">Account ID *</label>
+                <input type="text" id="delete-account-id" placeholder="e.g., 12345">
+            </div>
+            <button onclick="deleteAccountData()" style="background-color: #dc3545;"
+                onmouseover="this.style.backgroundColor='#c82333'"
+                onmouseout="this.style.backgroundColor='#dc3545'">Delete All Data</button>
+            <div id="delete-response" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/rag';
+
+        function showResponse(elementId, response, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `response ${isError ? 'error' : 'success'}`;
+            element.textContent = JSON.stringify(response, null, 2);
+        }
+
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'response loading';
+            element.textContent = 'Loading...';
+        }
+
+        function showFileInfo(fileInputId, infoElementId) {
+            const fileInput = document.getElementById(fileInputId);
+            const infoElement = document.getElementById(infoElementId);
+
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+                infoElement.textContent = `Selected: ${file.name} (${sizeInMB} MB, ${file.type})`;
+
+                if (file.size > 10 * 1024 * 1024) {
+                    infoElement.style.color = '#dc3545';
+                    infoElement.textContent += ' - Warning: File size exceeds 10MB limit';
+                } else if (!['application/pdf', 'text/plain'].includes(file.type)) {
+                    infoElement.style.color = '#dc3545';
+                    infoElement.textContent += ' - Warning: Only PDF and TXT files are supported';
+                } else {
+                    infoElement.style.color = '#28a745';
+                }
+            } else {
+                infoElement.textContent = '';
+            }
+        }
+
+        async function checkHealth() {
+            showLoading('health-response');
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                showResponse('health-response', data);
+            } catch (error) {
+                showResponse('health-response', { error: error.message }, true);
+            }
+        }
+
+        async function checkRagHealth() {
+            showLoading('health-response');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showResponse('health-response', data);
+            } catch (error) {
+                showResponse('health-response', { error: error.message }, true);
+            }
+        }
+
+        async function uploadDocument() {
+            const accountId = document.getElementById('upload-account-id').value;
+            const title = document.getElementById('upload-title').value;
+            const description = document.getElementById('upload-description').value;
+            const fileInput = document.getElementById('upload-file');
+
+            if (!accountId) {
+                showResponse('upload-response', { error: 'Account ID is required' }, true);
+                return;
+            }
+
+            if (!fileInput.files.length) {
+                showResponse('upload-response', { error: 'Please select a file' }, true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('account_id', accountId);
+            if (title) formData.append('title', title);
+            if (description) formData.append('description', description);
+
+            showLoading('upload-response');
+            document.getElementById('upload-btn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                showResponse('upload-response', data, !response.ok);
+            } catch (error) {
+                showResponse('upload-response', { error: error.message }, true);
+            } finally {
+                document.getElementById('upload-btn').disabled = false;
+            }
+        }
+
+        async function listDocuments() {
+            const accountId = document.getElementById('list-account-id').value;
+
+            if (!accountId) {
+                showResponse('list-response', { error: 'Account ID is required' }, true);
+                return;
+            }
+
+            showLoading('list-response');
+
+            try {
+                const response = await fetch(`${API_BASE}/documents/${accountId}`);
+                const data = await response.json();
+                showResponse('list-response', data, !response.ok);
+            } catch (error) {
+                showResponse('list-response', { error: error.message }, true);
+            }
+        }
+
+        async function searchDocuments() {
+            const accountId = document.getElementById('search-account-id').value;
+            const query = document.getElementById('search-query').value;
+            const limit = parseInt(document.getElementById('search-limit').value) || 10;
+
+            if (!accountId) {
+                showResponse('search-response', { error: 'Account ID is required' }, true);
+                return;
+            }
+
+            if (!query) {
+                showResponse('search-response', { error: 'Search query is required' }, true);
+                return;
+            }
+
+            showLoading('search-response');
+
+            try {
+                const response = await fetch(`${API_BASE}/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        account_id: accountId,
+                        query: query,
+                        limit: limit
+                    })
+                });
+
+                const data = await response.json();
+                showResponse('search-response', data, !response.ok);
+            } catch (error) {
+                showResponse('search-response', { error: error.message }, true);
+            }
+        }
+
+        async function deleteAccountData() {
+            const accountId = document.getElementById('delete-account-id').value;
+
+            if (!accountId) {
+                showResponse('delete-response', { error: 'Account ID is required' }, true);
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ALL data for account "${accountId}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            showLoading('delete-response');
+
+            try {
+                const response = await fetch(`${API_BASE}/data/${accountId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                showResponse('delete-response', data, !response.ok);
+            } catch (error) {
+                showResponse('delete-response', { error: error.message }, true);
+            }
+        }
+
+        // Auto-check health on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            checkHealth();
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,7 @@
+This is a test document for the RAG service.
+
+It contains some sample content that can be used to test the upload and embedding functionality.
+
+The document has multiple paragraphs to test the chunking and embedding generation process.
+
+This is the final paragraph of the test document.

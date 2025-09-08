@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure RAG Integration Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #0078d4;
+        }
+
+        .endpoint {
+            background: #f8f9fa;
+            border-left: 4px solid #0078d4;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .method {
+            background: #28a745;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .method.delete {
+            background: #dc3545;
+        }
+
+        .method.post {
+            background: #fd7e14;
+        }
+
+        .method.get {
+            background: #28a745;
+        }
+
+        code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #2d3748;
+            color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .test-section {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .azure-config {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #106ebe;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔷 Azure RAG Integration Guide</h1>
+
+        <div class="azure-config">
+            <h3>📋 Azure Configuration Status</h3>
+            <p><strong>Storage Account:</strong> wiralblob</p>
+            <p><strong>Container:</strong> ragdata</p>
+            <p><strong>Connection:</strong> <span id="azure-status">Checking...</span></p>
+        </div>
+
+        <h2>🚀 Quick Start</h2>
+        <p>This guide shows you how to use Azure Blob Storage with your RAG system for scalable file storage and
+            processing.</p>
+
+        <div class="test-section">
+            <h3>🧪 Test Azure RAG Integration</h3>
+
+            <div class="form-group">
+                <label for="account-id">Account ID:</label>
+                <input type="number" id="account-id" value="1" placeholder="Enter account ID">
+            </div>
+
+            <div class="form-group">
+                <label for="file-upload">Select Files:</label>
+                <input type="file" id="file-upload" multiple accept=".pdf,.txt,.doc,.docx">
+            </div>
+
+            <div class="form-group">
+                <label for="title">Title (optional):</label>
+                <input type="text" id="title" placeholder="Document title">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description (optional):</label>
+                <textarea id="description" placeholder="Document description"></textarea>
+            </div>
+
+            <button onclick="uploadToAzureRAG()">Upload to Azure RAG</button>
+            <button onclick="listAccountFiles()">List Account Files</button>
+            <button onclick="searchDocuments()">Search Documents</button>
+            <button onclick="testAzureHealth()">Test Azure Health</button>
+
+            <div id="results"></div>
+        </div>
+
+        <h2>📚 API Endpoints</h2>
+
+        <div class="endpoint">
+            <h3><span class="method post">POST</span>/api/azure-rag/upload</h3>
+            <p><strong>Purpose:</strong> Upload files to Azure and process them for RAG</p>
+            <p><strong>Body:</strong> FormData with files and metadata</p>
+            <pre><code>// JavaScript example
+const formData = new FormData();
+formData.append('files', fileInput.files[0]);
+formData.append('account_id', '1');
+formData.append('title', 'My Document');
+
+fetch('/api/azure-rag/upload', {
+    method: 'POST',
+    body: formData
+});</code></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span>/api/azure-rag/files/:accountId</h3>
+            <p><strong>Purpose:</strong> List all files for an account</p>
+            <p><strong>Response:</strong> Array of files with Azure URLs and metadata</p>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method delete">DELETE</span>/api/azure-rag/files/:accountId/:blobName</h3>
+            <p><strong>Purpose:</strong> Delete file from Azure and remove embeddings</p>
+            <p><strong>Response:</strong> Success status and deletion count</p>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method post">POST</span>/api/azure-rag/search</h3>
+            <p><strong>Purpose:</strong> Search documents using embeddings</p>
+            <p><strong>Body:</strong> JSON with query and account_id</p>
+            <pre><code>{
+  "account_id": 1,
+  "query": "What is the pricing policy?",
+  "limit": 5
+}</code></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span>/api/azure-rag/health</h3>
+            <p><strong>Purpose:</strong> Check Azure connection status</p>
+            <p><strong>Response:</strong> Health status and connection info</p>
+        </div>
+
+        <h2>🔧 Azure Storage Endpoints</h2>
+
+        <div class="endpoint">
+            <h3><span class="method post">POST</span>/api/azure/upload</h3>
+            <p><strong>Purpose:</strong> Upload files directly to Azure (without RAG processing)</p>
+            <p><strong>Response:</strong> Array of uploaded file URLs</p>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span>/api/azure/files</h3>
+            <p><strong>Purpose:</strong> List all files in Azure container</p>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method delete">DELETE</span>/api/azure/delete/:blobName</h3>
+            <p><strong>Purpose:</strong> Delete file from Azure storage</p>
+        </div>
+
+        <h2>🏗️ Architecture Overview</h2>
+        <ol>
+            <li><strong>File Upload:</strong> Files are uploaded to Azure Blob Storage</li>
+            <li><strong>Text Extraction:</strong> Text is extracted from files (PDF, TXT, etc.)</li>
+            <li><strong>Chunking:</strong> Text is split into manageable chunks</li>
+            <li><strong>Embeddings:</strong> OpenAI embeddings are generated for each chunk</li>
+            <li><strong>Storage:</strong> Embeddings are stored in MongoDB with Azure references</li>
+            <li><strong>Search:</strong> Semantic search using vector similarity</li>
+        </ol>
+
+        <h2>💡 Benefits of Azure Integration</h2>
+        <ul>
+            <li><strong>Scalability:</strong> Handle large files and high volume uploads</li>
+            <li><strong>Reliability:</strong> Azure's enterprise-grade storage infrastructure</li>
+            <li><strong>Cost-Effective:</strong> Pay only for storage used</li>
+            <li><strong>Global CDN:</strong> Fast file access worldwide</li>
+            <li><strong>Security:</strong> Enterprise-level security and compliance</li>
+            <li><strong>Backup:</strong> Automatic redundancy and backup</li>
+        </ul>
+
+        <h2>🔒 Environment Variables Required</h2>
+        <pre><code>AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=wiralblob;AccountKey=...;EndpointSuffix=core.windows.net"
+CONTAINER_NAME=ragdata
+STORAGE_NAME=wiralblob
+OPENAI_API_KEY=your_openai_key
+MONGODB_URI=mongodb://localhost:27017/wiral</code></pre>
+    </div>
+
+    <script>
+        // Test Azure health on page load
+        testAzureHealth();
+
+        async function testAzureHealth() {
+            try {
+                const response = await fetch('/api/azure-rag/health');
+                const data = await response.json();
+
+                const statusElement = document.getElementById('azure-status');
+                if (data.success) {
+                    statusElement.innerHTML = '<span style="color: green;">✓ Connected</span>';
+                } else {
+                    statusElement.innerHTML = '<span style="color: red;">✗ Not Connected</span>';
+                }
+            } catch (error) {
+                document.getElementById('azure-status').innerHTML = '<span style="color: red;">✗ Error</span>';
+            }
+        }
+
+        async function uploadToAzureRAG() {
+            const accountId = document.getElementById('account-id').value;
+            const fileInput = document.getElementById('file-upload');
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+
+            if (!accountId || !fileInput.files.length) {
+                showResult('Please enter account ID and select files', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let file of fileInput.files) {
+                formData.append('files', file);
+            }
+            formData.append('account_id', accountId);
+            if (title) formData.append('title', title);
+            if (description) formData.append('description', description);
+
+            try {
+                showResult('Uploading files to Azure RAG...', 'info');
+                const response = await fetch('/api/azure-rag/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                showResult(JSON.stringify(data, null, 2), response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('Upload failed: ' + error.message, 'error');
+            }
+        }
+
+        async function listAccountFiles() {
+            const accountId = document.getElementById('account-id').value;
+
+            if (!accountId) {
+                showResult('Please enter account ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/azure-rag/files/${accountId}`);
+                const data = await response.json();
+                showResult(JSON.stringify(data, null, 2), response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('List failed: ' + error.message, 'error');
+            }
+        }
+
+        async function searchDocuments() {
+            const accountId = document.getElementById('account-id').value;
+            const query = prompt('Enter search query:');
+
+            if (!accountId || !query) {
+                showResult('Please enter account ID and query', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/azure-rag/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: accountId, query: query, limit: 5 })
+                });
+
+                const data = await response.json();
+                showResult(JSON.stringify(data, null, 2), response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('Search failed: ' + error.message, 'error');
+            }
+        }
+
+        function showResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const statusClass = type === 'error' ? 'error' : 'success';
+            resultsDiv.innerHTML = `<div class="status ${statusClass}"><pre>${message}</pre></div>`;
+        }
+    </script>
+</body>
+
+</html>

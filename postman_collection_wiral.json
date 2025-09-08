@@ -1,0 +1,930 @@
+{
+	"info": {
+		"_postman_id": "wiral-rag-api-collection",
+		"name": "Wiral Multi-File RAG API Collection",
+		"description": "Comprehensive API collection for Wiral Multi-File RAG system with file upload, processing, search, and management capabilities",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "wiral-api-exporter"
+	},
+	"item": [
+		{
+			"name": "Health & Status",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"health"
+							]
+						},
+						"description": "Check the health status of the Multi-File RAG API service"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "File Upload & Processing",
+			"item": [
+				{
+					"name": "Multi-File Upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "multipart/form-data",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "account_id",
+									"value": "12345",
+									"type": "text",
+									"description": "Account ID for the upload"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "Multiple files to upload (PDF, DOC, DOCX, TXT, XLS, XLSX, CSV, RTF)"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "Second file (optional)"
+								},
+								{
+									"key": "title",
+									"value": "Sample Document Collection",
+									"type": "text",
+									"description": "Title for the uploaded documents"
+								},
+								{
+									"key": "description",
+									"value": "Collection of documents for RAG processing and analysis",
+									"type": "text",
+									"description": "Description of the documents"
+								},
+								{
+									"key": "system_prompt",
+									"value": "You are a helpful AI assistant that provides accurate information based on the uploaded documents. Always cite your sources and be specific in your responses.",
+									"type": "text",
+									"description": "System prompt for the AI assistant"
+								},
+								{
+									"key": "bot_api_key",
+									"value": "bot_api_key_12345",
+									"type": "text",
+									"description": "Bot API key for authentication"
+								},
+								{
+									"key": "api_key",
+									"value": "api_key_67890",
+									"type": "text",
+									"description": "General API key"
+								},
+								{
+									"key": "inbox_ids",
+									"value": "inbox_1,inbox_2,inbox_3",
+									"type": "text",
+									"description": "Comma-separated list of inbox IDs"
+								},
+								{
+									"key": "urls",
+									"value": "[\"https://example.com/document1\", \"https://docs.example.com/guide\"]",
+									"type": "text",
+									"description": "JSON array of URLs to process alongside files"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/upload-multi",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"upload-multi"
+							]
+						},
+						"description": "Upload multiple files for RAG processing with comprehensive metadata"
+					},
+					"response": []
+				},
+				{
+					"name": "Single File Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "account_id",
+									"value": "12345",
+									"type": "text",
+									"description": "Account ID for the upload"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Single file to upload"
+								},
+								{
+									"key": "title",
+									"value": "Important Business Document",
+									"type": "text",
+									"description": "Document title"
+								},
+								{
+									"key": "description",
+									"value": "Critical business document containing policy information",
+									"type": "text",
+									"description": "Document description"
+								},
+								{
+									"key": "system_prompt",
+									"value": "Analyze this document and provide insights about business policies and procedures.",
+									"type": "text",
+									"description": "AI system prompt"
+								},
+								{
+									"key": "bot_api_key",
+									"value": "bot_api_key_12345",
+									"type": "text",
+									"description": "Bot API key"
+								},
+								{
+									"key": "api_key",
+									"value": "api_key_67890",
+									"type": "text",
+									"description": "General API key"
+								},
+								{
+									"key": "inbox_ids",
+									"value": "primary_inbox,business_docs",
+									"type": "text",
+									"description": "Target inbox IDs"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/upload-single",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"upload-single"
+							]
+						},
+						"description": "Upload a single file for RAG processing"
+					},
+					"response": []
+				},
+				{
+					"name": "Batch File Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "account_id",
+									"value": "12345",
+									"type": "text",
+									"description": "Account ID for batch upload"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "File 1 for batch processing"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "File 2 for batch processing"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "File 3 for batch processing"
+								},
+								{
+									"key": "conflict_resolution",
+									"value": "auto",
+									"type": "text",
+									"description": "Conflict resolution strategy: auto, skip, replace, version"
+								},
+								{
+									"key": "title",
+									"value": "Batch Document Processing",
+									"type": "text",
+									"description": "Batch title"
+								},
+								{
+									"key": "description",
+									"value": "Large batch of documents for comprehensive analysis",
+									"type": "text",
+									"description": "Batch description"
+								},
+								{
+									"key": "system_prompt",
+									"value": "Process these documents as a cohesive collection and identify common themes and patterns.",
+									"type": "text",
+									"description": "Batch processing prompt"
+								},
+								{
+									"key": "bot_api_key",
+									"value": "bot_api_key_12345",
+									"type": "text",
+									"description": "Bot API key"
+								},
+								{
+									"key": "api_key",
+									"value": "api_key_67890",
+									"type": "text",
+									"description": "API key"
+								},
+								{
+									"key": "inbox_ids",
+									"value": "batch_processing,document_analysis",
+									"type": "text",
+									"description": "Batch processing inboxes"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/upload-batch",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"upload-batch"
+							]
+						},
+						"description": "Upload multiple files with intelligent conflict resolution"
+					},
+					"response": []
+				},
+				{
+					"name": "Analyze Files Before Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "account_id",
+									"value": "12345",
+									"type": "text",
+									"description": "Account ID for analysis"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "File 1 to analyze"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "File 2 to analyze"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/analyze-files",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"analyze-files"
+							]
+						},
+						"description": "Analyze files before upload to detect conflicts and duplicates"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "URL Processing",
+			"item": [
+				{
+					"name": "Process URLs",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"urls\": [\n        \"https://docs.example.com/api-documentation\",\n        \"https://help.example.com/user-guide\",\n        \"https://blog.example.com/latest-updates\"\n    ],\n    \"title\": \"External Documentation Collection\",\n    \"description\": \"Collection of external documentation and guides for comprehensive knowledge base\",\n    \"system_prompt\": \"Extract and organize information from these web sources to create a comprehensive knowledge base.\",\n    \"bot_api_key\": \"bot_api_key_12345\",\n    \"api_key\": \"api_key_67890\",\n    \"inbox_ids\": [\"web_content\", \"documentation\", \"external_sources\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/process-urls",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"process-urls"
+							]
+						},
+						"description": "Process multiple URLs for content extraction and RAG processing"
+					},
+					"response": []
+				},
+				{
+					"name": "Mixed Content Processing",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "account_id",
+									"value": "12345",
+									"type": "text",
+									"description": "Account ID"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "Local file upload"
+								},
+								{
+									"key": "urls",
+									"value": "[\"https://example.com/document\", \"https://docs.example.com/api\"]",
+									"type": "text",
+									"description": "URLs to process"
+								},
+								{
+									"key": "file_url",
+									"value": "https://cdn.example.com/important-document.pdf",
+									"type": "text",
+									"description": "Direct file URL to download and process"
+								},
+								{
+									"key": "title",
+									"value": "Mixed Content Collection",
+									"type": "text",
+									"description": "Title for mixed content"
+								},
+								{
+									"key": "description",
+									"value": "Combination of local files, web URLs, and remote files for comprehensive processing",
+									"type": "text",
+									"description": "Mixed content description"
+								},
+								{
+									"key": "system_prompt",
+									"value": "Process and analyze this mixed collection of content sources to create a unified knowledge base.",
+									"type": "text",
+									"description": "Processing instructions"
+								},
+								{
+									"key": "bot_api_key",
+									"value": "bot_api_key_12345",
+									"type": "text",
+									"description": "Bot API key"
+								},
+								{
+									"key": "api_key",
+									"value": "api_key_67890",
+									"type": "text",
+									"description": "API key"
+								},
+								{
+									"key": "inbox_ids",
+									"value": "mixed_content,comprehensive_analysis",
+									"type": "text",
+									"description": "Target inboxes"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/process-mixed",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"process-mixed"
+							]
+						},
+						"description": "Process mixed content: files + URLs + file URLs in a single request"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Search & Retrieval",
+			"item": [
+				{
+					"name": "Hybrid Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"query\": \"artificial intelligence machine learning algorithms\",\n    \"limit\": 15,\n    \"search_method\": \"hybrid\",\n    \"filters\": {\n        \"source_type\": \"file\",\n        \"file_type\": \".pdf\",\n        \"date_from\": \"2024-01-01\",\n        \"date_to\": \"2024-12-31\"\n    },\n    \"include_metadata\": true,\n    \"sort_by\": \"score\",\n    \"sort_order\": \"desc\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/search",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Perform hybrid search combining vector similarity and keyword matching"
+					},
+					"response": []
+				},
+				{
+					"name": "Vector Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"query\": \"data privacy regulations compliance requirements\",\n    \"limit\": 10,\n    \"search_method\": \"vector\",\n    \"filters\": {\n        \"source_type\": \"file\"\n    },\n    \"include_metadata\": true,\n    \"sort_by\": \"score\",\n    \"sort_order\": \"desc\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/search",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Perform semantic vector search for content similarity"
+					},
+					"response": []
+				},
+				{
+					"name": "Database Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"query\": \"financial reports quarterly earnings\",\n    \"limit\": 20,\n    \"search_method\": \"database\",\n    \"filters\": {\n        \"file_type\": \".xlsx\",\n        \"source_type\": \"file\"\n    },\n    \"include_metadata\": false,\n    \"sort_by\": \"processing_date\",\n    \"sort_order\": \"desc\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/search",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Perform database search with regex pattern matching"
+					},
+					"response": []
+				},
+				{
+					"name": "Keyword Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"query\": \"customer service support troubleshooting\",\n    \"limit\": 12,\n    \"search_method\": \"keyword\",\n    \"filters\": {},\n    \"include_metadata\": true,\n    \"sort_by\": \"score\",\n    \"sort_order\": \"desc\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/search",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Perform keyword-based search with relevance scoring"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Document Management",
+			"item": [
+				{
+					"name": "Get Documents by Account",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/documents/12345?source_type=file&file_type=.pdf&limit=25&offset=0&sort_by=processing_date&sort_order=desc&date_from=2024-01-01&date_to=2024-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"documents",
+								"12345"
+							],
+							"query": [
+								{
+									"key": "source_type",
+									"value": "file",
+									"description": "Filter by source type (file, url, file_url)"
+								},
+								{
+									"key": "file_type",
+									"value": ".pdf",
+									"description": "Filter by file extension"
+								},
+								{
+									"key": "limit",
+									"value": "25",
+									"description": "Number of documents to return"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Pagination offset"
+								},
+								{
+									"key": "sort_by",
+									"value": "processing_date",
+									"description": "Sort field"
+								},
+								{
+									"key": "sort_order",
+									"value": "desc",
+									"description": "Sort order (asc/desc)"
+								},
+								{
+									"key": "date_from",
+									"value": "2024-01-01",
+									"description": "Filter from date"
+								},
+								{
+									"key": "date_to",
+									"value": "2024-12-31",
+									"description": "Filter to date"
+								}
+							]
+						},
+						"description": "Retrieve documents for an account with comprehensive filtering options"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Document Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/stats/12345",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"stats",
+								"12345"
+							]
+						},
+						"description": "Get comprehensive statistics for an account's documents"
+					},
+					"response": []
+				},
+				{
+					"name": "Get File Version History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/file-history/12345/sample-document.pdf?includeInactive=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"file-history",
+								"12345",
+								"sample-document.pdf"
+							],
+							"query": [
+								{
+									"key": "includeInactive",
+									"value": "true",
+									"description": "Include inactive/replaced versions"
+								}
+							]
+						},
+						"description": "Get version history for a specific file"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Document Updates",
+			"item": [
+				{
+					"name": "Update Document Content",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"document_id\": \"doc_uuid_12345\",\n    \"title\": \"Updated Document Title\",\n    \"description\": \"Updated comprehensive description of the document with new information\",\n    \"content\": \"This is the updated content of the document. It contains new information that will trigger re-processing and embedding regeneration. The system will automatically handle chunking, embedding generation, and vector store updates.\",\n    \"system_prompt\": \"Updated system prompt with new instructions for AI processing\",\n    \"bot_api_key\": \"updated_bot_api_key_12345\",\n    \"api_key\": \"updated_api_key_67890\",\n    \"inbox_ids\": [\"updated_inbox_1\", \"updated_inbox_2\"],\n    \"is_active\": true,\n    \"metadata\": {\n        \"category\": \"updated_category\",\n        \"priority\": \"high\",\n        \"department\": \"engineering\",\n        \"last_reviewer\": \"john.doe@example.com\",\n        \"approval_status\": \"approved\",\n        \"custom_field_1\": \"custom_value_1\",\n        \"custom_field_2\": \"custom_value_2\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/update",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"update"
+							]
+						},
+						"description": "Update document content and metadata with automatic re-processing"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Document Metadata Only",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"document_id\": \"doc_uuid_12345\",\n    \"title\": \"Updated Metadata Title\",\n    \"description\": \"Updated description without content changes\",\n    \"system_prompt\": \"Updated system prompt for better AI responses\",\n    \"bot_api_key\": \"metadata_update_bot_key\",\n    \"api_key\": \"metadata_update_api_key\",\n    \"inbox_ids\": [\"metadata_inbox_1\", \"metadata_inbox_2\"],\n    \"is_active\": true,\n    \"metadata\": {\n        \"status\": \"reviewed\",\n        \"category\": \"policy_document\",\n        \"priority\": \"medium\",\n        \"tags\": [\"important\", \"policy\", \"compliance\"],\n        \"last_updated_by\": \"admin@example.com\",\n        \"review_date\": \"2024-12-15\",\n        \"version\": \"2.1\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/update",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"update"
+							]
+						},
+						"description": "Update only document metadata without regenerating embeddings"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Document Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"document_id\": \"doc_uuid_12345\",\n    \"status\": \"processing_completed\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"status"
+							]
+						},
+						"description": "Update document processing status"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Document Deletion",
+			"item": [
+				{
+					"name": "Delete Single Document",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"document_id\": \"doc_uuid_12345\",\n    \"deleteFromAzure\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/document",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"document"
+							]
+						},
+						"description": "Delete a single document with option to remove Azure files"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Delete Documents",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"12345\",\n    \"document_ids\": [\n        \"doc_uuid_12345\",\n        \"doc_uuid_67890\",\n        \"doc_uuid_11111\",\n        \"doc_uuid_22222\"\n    ],\n    \"deleteFromAzure\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/multi-rag/bulk-delete",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"bulk-delete"
+							]
+						},
+						"description": "Delete multiple documents in a single operation"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://webhook.wiral.ai",
+			"type": "string"
+		}
+	]
+}

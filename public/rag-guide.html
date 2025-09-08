@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete RAG System Usage Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .method {
+            background: #28a745;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .method.post {
+            background: #fd7e14;
+        }
+
+        .method.get {
+            background: #28a745;
+        }
+
+        .method.delete {
+            background: #dc3545;
+        }
+
+        code {
+            background: #f1f3f4;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #2d3748;
+            color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .test-section {
+            background: #e8f5e8;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            border: 2px solid #27ae60;
+        }
+
+        .endpoint {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button.danger {
+            background: #e74c3c;
+        }
+
+        button.danger:hover {
+            background: #c0392b;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin: 20px 0;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+
+        .result-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .tab {
+            background: #f1f1f1;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 20px;
+            transition: 0.3s;
+            margin-right: 2px;
+        }
+
+        .tab:hover {
+            background: #ddd;
+        }
+
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-top: none;
+            background: white;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .example-box {
+            background: #fef9e7;
+            border: 1px solid #faebcc;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🤖 Complete RAG System Usage Guide</h1>
+        <p>This guide covers all features of your enhanced RAG system including file uploads, URL processing with
+            Firecrawl, Excel support, and Azure integration.</p>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab active" onclick="openTab(event, 'quick-start')">Quick Start</button>
+            <button class="tab" onclick="openTab(event, 'file-upload')">File Upload</button>
+            <button class="tab" onclick="openTab(event, 'url-processing')">URL Processing</button>
+            <button class="tab" onclick="openTab(event, 'search-docs')">Search Documents</button>
+            <button class="tab" onclick="openTab(event, 'azure-features')">Azure Features</button>
+            <button class="tab" onclick="openTab(event, 'api-reference')">API Reference</button>
+        </div>
+
+        <!-- Quick Start Tab -->
+        <div id="quick-start" class="tab-content active">
+            <h2>🚀 Quick Start Guide</h2>
+
+            <div class="test-section">
+                <h3>🧪 Test Your RAG System</h3>
+
+                <div class="form-group">
+                    <label for="account-id">Account ID:</label>
+                    <input type="number" id="account-id" value="1" placeholder="Enter your account ID">
+                </div>
+
+                <div class="form-group">
+                    <label>Choose Operation:</label>
+                    <button onclick="testSystemHealth()">Test System Health</button>
+                    <button onclick="listAllDocuments()">List My Documents</button>
+                    <button onclick="showSearchInterface()">Search Documents</button>
+                </div>
+
+                <div id="quick-results" class="result-box" style="display: none;"></div>
+            </div>
+
+            <div class="feature-card">
+                <h3>🎯 What Can Your RAG System Do?</h3>
+                <ul>
+                    <li><strong>📄 File Processing:</strong> PDF, TXT, Excel files with text extraction</li>
+                    <li><strong>🌐 URL Scraping:</strong> Process websites using Firecrawl</li>
+                    <li><strong>☁️ Azure Storage:</strong> Cloud-based file storage and management</li>
+                    <li><strong>🔍 Semantic Search:</strong> AI-powered document search</li>
+                    <li><strong>📊 Excel Support:</strong> Process spreadsheets with multiple sheets</li>
+                    <li><strong>🔗 Batch Processing:</strong> Handle multiple files/URLs at once</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- File Upload Tab -->
+        <div id="file-upload" class="tab-content">
+            <h2>📁 File Upload & Processing</h2>
+
+            <div class="test-section">
+                <h3>Upload Files for RAG Processing</h3>
+
+                <div class="form-group">
+                    <label for="file-account-id">Account ID:</label>
+                    <input type="number" id="file-account-id" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="file-upload">Select Files (PDF, TXT, Excel):</label>
+                    <input type="file" id="file-upload" multiple accept=".pdf,.txt,.xls,.xlsx">
+                </div>
+
+                <div class="form-group">
+                    <label for="file-title">Title (optional):</label>
+                    <input type="text" id="file-title" placeholder="Document title">
+                </div>
+
+                <div class="form-group">
+                    <label for="file-description">Description (optional):</label>
+                    <textarea id="file-description" placeholder="Document description"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="inbox-ids">Inbox IDs (comma-separated):</label>
+                    <input type="text" id="inbox-ids" placeholder="1,2,3">
+                </div>
+
+                <button onclick="uploadFiles()">Upload to Standard RAG</button>
+                <button onclick="uploadToAzure()">Upload to Azure RAG</button>
+
+                <div id="file-results" class="result-box" style="display: none;"></div>
+            </div>
+
+            <div class="example-box">
+                <h4>📋 Supported File Types:</h4>
+                <ul>
+                    <li><strong>PDF:</strong> Extracts text content from PDF documents</li>
+                    <li><strong>TXT:</strong> Plain text files</li>
+                    <li><strong>Excel (.xls, .xlsx):</strong> Processes all sheets with smart content extraction</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- URL Processing Tab -->
+        <div id="url-processing" class="tab-content">
+            <h2>🌐 URL Processing with Firecrawl</h2>
+
+            <div class="test-section">
+                <h3>Process Websites & URLs</h3>
+
+                <div class="form-group">
+                    <label for="url-account-id">Account ID:</label>
+                    <input type="number" id="url-account-id" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="urls-input">URLs (one per line):</label>
+                    <textarea id="urls-input" rows="4"
+                        placeholder="https://example.com&#10;https://another-site.com"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="crawl-mode">Processing Mode:</label>
+                    <select id="crawl-mode">
+                        <option value="scrape">Single Page Scrape</option>
+                        <option value="crawl">Crawl Multiple Pages</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="crawl-limit">Max Pages per URL:</label>
+                    <input type="number" id="crawl-limit" value="5" min="1" max="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="url-titles">Titles (comma-separated, optional):</label>
+                    <input type="text" id="url-titles" placeholder="Title 1, Title 2">
+                </div>
+
+                <button onclick="processUrls()">Process URLs</button>
+                <button onclick="processBatchUrls()">Batch Process (Rate Limited)</button>
+
+                <div id="url-results" class="result-box" style="display: none;"></div>
+            </div>
+
+            <div class="example-box">
+                <h4>🔧 Firecrawl Features:</h4>
+                <ul>
+                    <li><strong>Smart Content Extraction:</strong> Removes navigation, ads, and focuses on main content
+                    </li>
+                    <li><strong>Crawl Mode:</strong> Follow links and process multiple pages</li>
+                    <li><strong>Rate Limiting:</strong> Batch processing to respect website limits</li>
+                    <li><strong>Metadata Extraction:</strong> Title, description, language detection</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Search Documents Tab -->
+        <div id="search-docs" class="tab-content">
+            <h2>🔍 Search Your Documents</h2>
+
+            <div class="test-section">
+                <h3>Semantic Document Search</h3>
+
+                <div class="form-group">
+                    <label for="search-account-id">Account ID:</label>
+                    <input type="number" id="search-account-id" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="search-query">Search Query:</label>
+                    <input type="text" id="search-query" placeholder="What are you looking for?">
+                </div>
+
+                <div class="form-group">
+                    <label for="search-limit">Number of Results:</label>
+                    <input type="number" id="search-limit" value="5" min="1" max="20">
+                </div>
+
+                <div class="form-group">
+                    <label for="source-types">Filter by Source Type:</label>
+                    <select id="source-types" multiple>
+                        <option value="file">Files</option>
+                        <option value="url">URLs</option>
+                    </select>
+                </div>
+
+                <button onclick="searchDocuments()">Search Documents</button>
+                <button onclick="listDocuments()">List All Documents</button>
+
+                <div id="search-results" class="result-box" style="display: none;"></div>
+            </div>
+
+            <div class="example-box">
+                <h4>💡 Search Tips:</h4>
+                <ul>
+                    <li>Use natural language queries like "pricing policy" or "how to configure"</li>
+                    <li>Search works across all your uploaded documents and processed URLs</li>
+                    <li>Results are ranked by semantic similarity, not just keyword matching</li>
+                    <li>Filter by source type to search only files or only URLs</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Azure Features Tab -->
+        <div id="azure-features" class="tab-content">
+            <h2>☁️ Azure Cloud Features</h2>
+
+            <div class="test-section">
+                <h3>Azure Blob Storage Integration</h3>
+
+                <div class="form-group">
+                    <label>Azure Status:</label>
+                    <span id="azure-status">Checking...</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="azure-account-id">Account ID:</label>
+                    <input type="number" id="azure-account-id" value="1">
+                </div>
+
+                <button onclick="testAzureHealth()">Test Azure Connection</button>
+                <button onclick="listAzureFiles()">List Azure Files</button>
+                <button onclick="showAzureGuide()">Open Azure Guide</button>
+
+                <div id="azure-results" class="result-box" style="display: none;"></div>
+            </div>
+
+            <div class="feature-card">
+                <h3>🌟 Azure Benefits</h3>
+                <ul>
+                    <li><strong>Scalability:</strong> Handle large files and high volume</li>
+                    <li><strong>Reliability:</strong> Enterprise-grade storage infrastructure</li>
+                    <li><strong>Global CDN:</strong> Fast access worldwide</li>
+                    <li><strong>Security:</strong> Enterprise-level security and compliance</li>
+                    <li><strong>Cost-Effective:</strong> Pay only for what you use</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- API Reference Tab -->
+        <div id="api-reference" class="tab-content">
+            <h2>📚 API Reference</h2>
+
+            <div class="endpoint">
+                <h3><span class="method post">POST</span>/api/rag/upload</h3>
+                <p><strong>Upload files for RAG processing</strong></p>
+                <pre><code>curl -X POST http://localhost:3009/api/rag/upload \
+  -F "file=@document.pdf" \
+  -F "account_id=1" \
+  -F "title=My Document"</code></pre>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method post">POST</span>/api/rag/process-urls</h3>
+                <p><strong>Process URLs with Firecrawl</strong></p>
+                <pre><code>curl -X POST http://localhost:3009/api/rag/process-urls \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": ["https://example.com"],
+    "account_id": 1,
+    "firecrawlOptions": {
+      "mode": "crawl",
+      "limit": 5
+    }
+  }'</code></pre>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method post">POST</span>/api/rag/search</h3>
+                <p><strong>Search documents</strong></p>
+                <pre><code>curl -X POST http://localhost:3009/api/rag/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_id": 1,
+    "query": "pricing policy",
+    "limit": 5
+  }'</code></pre>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method get">GET</span>/api/rag/documents/:accountId</h3>
+                <p><strong>List documents for an account</strong></p>
+                <pre><code>curl -X GET http://localhost:3009/api/rag/documents/1</code></pre>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method delete">DELETE</span>/api/rag/documents/:documentId</h3>
+                <p><strong>Delete a document</strong></p>
+                <pre><code>curl -X DELETE http://localhost:3009/api/rag/documents/60f7b1b3c7e8b8001f8e4567</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab functionality
+        function openTab(evt, tabName) {
+            var i, tabcontent, tabs;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].classList.remove("active");
+            }
+            tabs = document.getElementsByClassName("tab");
+            for (i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove("active");
+            }
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
+
+        // Test system health
+        async function testSystemHealth() {
+            showResult('quick-results', 'Testing system health...', 'info');
+            try {
+                const response = await fetch('/api/rag/health');
+                const data = await response.json();
+                showResult('quick-results', JSON.stringify(data, null, 2), 'success');
+            } catch (error) {
+                showResult('quick-results', 'System health check failed: ' + error.message, 'error');
+            }
+        }
+
+        // List all documents
+        async function listAllDocuments() {
+            const accountId = document.getElementById('account-id').value;
+            if (!accountId) {
+                showResult('quick-results', 'Please enter account ID', 'error');
+                return;
+            }
+
+            showResult('quick-results', 'Loading documents...', 'info');
+            try {
+                const response = await fetch(`/api/rag/documents/${accountId}`);
+                const data = await response.json();
+                showResult('quick-results', JSON.stringify(data, null, 2), 'success');
+            } catch (error) {
+                showResult('quick-results', 'Failed to load documents: ' + error.message, 'error');
+            }
+        }
+
+        // Upload files
+        async function uploadFiles() {
+            const accountId = document.getElementById('file-account-id').value;
+            const fileInput = document.getElementById('file-upload');
+            const title = document.getElementById('file-title').value;
+            const description = document.getElementById('file-description').value;
+            const inboxIds = document.getElementById('inbox-ids').value;
+
+            if (!accountId || !fileInput.files.length) {
+                showResult('file-results', 'Please enter account ID and select files', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let file of fileInput.files) {
+                formData.append('files', file);
+            }
+            formData.append('account_id', accountId);
+            if (title) formData.append('title', title);
+            if (description) formData.append('description', description);
+            if (inboxIds) formData.append('inbox_ids', inboxIds);
+
+            showResult('file-results', 'Uploading files...', 'info');
+            try {
+                const response = await fetch('/api/rag/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                showResult('file-results', JSON.stringify(data, null, 2), response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('file-results', 'Upload failed: ' + error.message, 'error');
+            }
+        }
+
+        // Process URLs
+        async function processUrls() {
+            const accountId = document.getElementById('url-account-id').value;
+            const urlsText = document.getElementById('urls-input').value;
+            const mode = document.getElementById('crawl-mode').value;
+            const limit = document.getElementById('crawl-limit').value;
+            const titles = document.getElementById('url-titles').value;
+
+            if (!accountId || !urlsText.trim()) {
+                showResult('url-results', 'Please enter account ID and URLs', 'error');
+                return;
+            }
+
+            const urls = urlsText.split('\n').filter(url => url.trim()).map(url => url.trim());
+
+            const payload = {
+                urls: urls,
+                account_id: parseInt(accountId),
+                firecrawlOptions: {
+                    mode: mode,
+                    limit: parseInt(limit),
+                    crawlSubpages: mode === 'crawl'
+                }
+            };
+
+            if (titles) {
+                payload.titles = titles.split(',').map(t => t.trim());
+            }
+
+            showResult('url-results', 'Processing URLs...', 'info');
+            try {
+                const response = await fetch('/api/rag/process-urls', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                showResult('url-results', JSON.stringify(data, null, 2), response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('url-results', 'URL processing failed: ' + error.message, 'error');
+            }
+        }
+
+        // Search documents
+        async function searchDocuments() {
+            const accountId = document.getElementById('search-account-id').value;
+            const query = document.getElementById('search-query').value;
+            const limit = document.getElementById('search-limit').value;
+            const sourceTypes = Array.from(document.getElementById('source-types').selectedOptions).map(option => option.value);
+
+            if (!accountId || !query.trim()) {
+                showResult('search-results', 'Please enter account ID and search query', 'error');
+                return;
+            }
+
+            const payload = {
+                account_id: parseInt(accountId),
+                query: query,
+                limit: parseInt(limit)
+            };
+
+            if (sourceTypes.length > 0) {
+                payload.sourceTypes = sourceTypes;
+            }
+
+            showResult('search-results', 'Searching documents...', 'info');
+            try {
+                const response = await fetch('/api/rag/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                showResult('search-results', JSON.stringify(data, null, 2), response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('search-results', 'Search failed: ' + error.message, 'error');
+            }
+        }
+
+        // Test Azure health
+        async function testAzureHealth() {
+            try {
+                const response = await fetch('/api/azure-rag/health');
+                const data = await response.json();
+
+                const statusElement = document.getElementById('azure-status');
+                if (data.success) {
+                    statusElement.innerHTML = '<span style="color: green;">✓ Connected</span>';
+                } else {
+                    statusElement.innerHTML = '<span style="color: red;">✗ Not Connected</span>';
+                }
+                showResult('azure-results', JSON.stringify(data, null, 2), 'success');
+            } catch (error) {
+                document.getElementById('azure-status').innerHTML = '<span style="color: red;">✗ Error</span>';
+                showResult('azure-results', 'Azure health check failed: ' + error.message, 'error');
+            }
+        }
+
+        // Show Azure guide
+        function showAzureGuide() {
+            window.open('/azure-guide.html', '_blank');
+        }
+
+        // Helper function to show results
+        function showResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const statusClass = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            container.innerHTML = `<div class="status ${statusClass}"><pre>${message}</pre></div>`;
+            container.style.display = 'block';
+        }
+
+        // Show search interface in quick start
+        function showSearchInterface() {
+            document.querySelector('.tab[onclick="openTab(event, \'search-docs\')"]').click();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function () {
+            testAzureHealth();
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,802 @@
+{
+	"info": {
+		"_postman_id": "rag-api-collection-2025",
+		"name": "RAG API - Multi-File & Document Management",
+		"description": "Complete collection for RAG (Retrieval-Augmented Generation) API endpoints including multi-file upload, URL processing, search, and document management features.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "rag-api-team"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3009",
+			"type": "string",
+			"description": "Base URL for the RAG API service"
+		},
+		{
+			"key": "account_id",
+			"value": "123",
+			"type": "string",
+			"description": "Default account ID for testing"
+		}
+	],
+	"item": [
+		{
+			"name": "Health & Status",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"health"
+							]
+						},
+						"description": "Check the health status of the RAG service and available features"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "File Upload",
+			"item": [
+				{
+					"name": "Multi-File Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"type": "formdata",
+							"formdata": [
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "Multiple files to upload (PDF, TXT, DOC, DOCX, XLS, XLSX)"
+								},
+								{
+									"key": "account_id",
+									"value": "123",
+									"type": "text",
+									"description": "Account ID for the upload"
+								},
+								{
+									"key": "title",
+									"value": "Batch Document Upload",
+									"type": "text",
+									"description": "Title for the uploaded documents (optional)"
+								},
+								{
+									"key": "urls",
+									"value": "[\"https://example.com/doc1.pdf\", \"https://docs.python.org/3/tutorial/\"]",
+									"type": "text",
+									"description": "JSON array of URLs to process along with files (optional)"
+								},
+								{
+									"key": "file_url",
+									"value": "https://example.com/document.pdf",
+									"type": "text",
+									"description": "Direct file URL to download and process (optional)"
+								},
+								{
+									"key": "inbox_ids",
+									"value": "[\"inbox1\", \"inbox2\"]",
+									"type": "text",
+									"description": "JSON array of inbox IDs (optional)"
+								},
+								{
+									"key": "api_key",
+									"value": "your-api-key-here",
+									"type": "text",
+									"description": "API key for external services (optional)"
+								},
+								{
+									"key": "bot_api_key",
+									"value": "your-bot-key-here",
+									"type": "text",
+									"description": "Bot API key for automation (optional)"
+								},
+								{
+									"key": "system_prompt",
+									"value": "You are a helpful assistant for document analysis and knowledge retrieval.",
+									"type": "text",
+									"description": "System prompt for AI responses (optional)"
+								},
+								{
+									"key": "description",
+									"value": "Batch upload of training documents for the knowledge base",
+									"type": "text",
+									"description": "Description of the upload (optional)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/upload-multi",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"upload-multi"
+							]
+						},
+						"description": "Upload multiple files simultaneously for processing. Supports up to 10 files with 50MB limit each."
+					},
+					"response": []
+				},
+				{
+					"name": "Single File Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"type": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Single file to upload"
+								},
+								{
+									"key": "account_id",
+									"value": "123",
+									"type": "text",
+									"description": "Account ID for the upload"
+								},
+								{
+									"key": "title",
+									"value": "Single Document Upload",
+									"type": "text",
+									"description": "Title for the uploaded document (optional)"
+								},
+								{
+									"key": "inbox_ids",
+									"value": "[\"inbox1\"]",
+									"type": "text",
+									"description": "JSON array of inbox IDs (optional)"
+								},
+								{
+									"key": "api_key",
+									"value": "your-api-key-here",
+									"type": "text",
+									"description": "API key for external services (optional)"
+								},
+								{
+									"key": "bot_api_key",
+									"value": "your-bot-key-here",
+									"type": "text",
+									"description": "Bot API key for automation (optional)"
+								},
+								{
+									"key": "system_prompt",
+									"value": "You are a helpful assistant for document analysis.",
+									"type": "text",
+									"description": "System prompt for AI responses (optional)"
+								},
+								{
+									"key": "description",
+									"value": "Single document upload for processing",
+									"type": "text",
+									"description": "Description of the upload (optional)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/upload-single",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"upload-single"
+							]
+						},
+						"description": "Upload a single file for processing (backward compatibility endpoint)"
+					},
+					"response": []
+				},
+				{
+					"name": "Mixed Content Processing",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"type": "formdata",
+							"formdata": [
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "Files to upload (optional)"
+								},
+								{
+									"key": "account_id",
+									"value": "123",
+									"type": "text",
+									"description": "Account ID for processing"
+								},
+								{
+									"key": "title",
+									"value": "Mixed Content Processing",
+									"type": "text",
+									"description": "Title for the processed content (optional)"
+								},
+								{
+									"key": "urls",
+									"value": "[\"https://example.com/doc1.pdf\", \"https://example.com/page1\", \"https://docs.example.com/api\"]",
+									"type": "text",
+									"description": "JSON array of URLs to process (optional)"
+								},
+								{
+									"key": "file_url",
+									"value": "https://example.com/important-document.pdf",
+									"type": "text",
+									"description": "Direct file URL to download and process (optional)"
+								},
+								{
+									"key": "inbox_ids",
+									"value": "[\"inbox1\", \"inbox2\"]",
+									"type": "text",
+									"description": "JSON array of inbox IDs (optional)"
+								},
+								{
+									"key": "api_key",
+									"value": "your-api-key-here",
+									"type": "text",
+									"description": "API key for external services (optional)"
+								},
+								{
+									"key": "bot_api_key",
+									"value": "your-bot-key-here",
+									"type": "text",
+									"description": "Bot API key for automation (optional)"
+								},
+								{
+									"key": "system_prompt",
+									"value": "You are a helpful assistant for processing mixed content types.",
+									"type": "text",
+									"description": "System prompt for AI responses (optional)"
+								},
+								{
+									"key": "description",
+									"value": "Mixed content processing - files, URLs, and direct file links",
+									"type": "text",
+									"description": "Description of the processing (optional)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/process-mixed",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"process-mixed"
+							]
+						},
+						"description": "Process mixed content: uploaded files, web URLs, and direct file URLs. At least one input type is required."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "URL Processing",
+			"item": [
+				{
+					"name": "Process URLs Only",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"urls\": [\n    \"https://example.com/page1\",\n    \"https://example.com/page2\",\n    \"https://docs.example.com/api\",\n    \"https://blog.example.com/ml-tutorial\"\n  ],\n  \"title\": \"Web Pages Knowledge Base\",\n  \"inbox_ids\": [\"inbox1\", \"inbox2\"],\n  \"description\": \"Processing web pages for knowledge base expansion\",\n  \"api_key\": \"your-api-key-here\",\n  \"bot_api_key\": \"your-bot-key-here\",\n  \"system_prompt\": \"Extract and organize key information from web pages for knowledge retrieval\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/process-urls",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"process-urls"
+							]
+						},
+						"description": "Process web URLs without any file uploads. Requires Firecrawl API key for web scraping."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Search & Retrieval",
+			"item": [
+				{
+					"name": "Hybrid Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"query\": \"machine learning algorithms\",\n  \"limit\": 10,\n  \"search_method\": \"hybrid\",\n  \"filters\": {\n    \"source_type\": \"file\",\n    \"file_type\": \".pdf\",\n    \"date_from\": \"2025-01-01\",\n    \"processing_status\": \"completed\"\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Search documents using hybrid method (combines semantic and keyword search)"
+					},
+					"response": []
+				},
+				{
+					"name": "Vector Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"query\": \"artificial intelligence concepts\",\n  \"limit\": 5,\n  \"search_method\": \"vector\",\n  \"filters\": {}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Search documents using vector similarity only (pure semantic search)"
+					},
+					"response": []
+				},
+				{
+					"name": "Database Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"query\": \"machine learning algorithms\",\n  \"limit\": 8,\n  \"search_method\": \"database\",\n  \"filters\": {\n    \"source_type\": \"file\",\n    \"file_type\": \".pdf\"\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Search documents using MongoDB text search with scoring"
+					},
+					"response": []
+				},
+				{
+					"name": "Keyword Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"query\": \"neural networks deep learning\",\n  \"limit\": 15,\n  \"search_method\": \"keyword\",\n  \"filters\": {\n    \"source_type\": \"url\"\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"search"
+							]
+						},
+						"description": "Search documents using keyword matching only"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Document Management",
+			"item": [
+				{
+					"name": "Get All Documents",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/documents/{{account_id}}?limit=50&offset=0&sort_by=processing_date&sort_order=desc",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"documents",
+								"{{account_id}}"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "Number of documents to return (default: 50)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Number of documents to skip (default: 0)"
+								},
+								{
+									"key": "sort_by",
+									"value": "processing_date",
+									"description": "Field to sort by (default: processing_date)"
+								},
+								{
+									"key": "sort_order",
+									"value": "desc",
+									"description": "Sort order: asc or desc (default: desc)"
+								}
+							]
+						},
+						"description": "Retrieve all documents for an account with pagination and sorting"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Documents with Filters",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/documents/{{account_id}}?source_type=file&file_type=.pdf&date_from=2025-01-01&date_to=2025-12-31&limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"documents",
+								"{{account_id}}"
+							],
+							"query": [
+								{
+									"key": "source_type",
+									"value": "file",
+									"description": "Filter by source type: file, url, file_url"
+								},
+								{
+									"key": "file_type",
+									"value": ".pdf",
+									"description": "Filter by file extension"
+								},
+								{
+									"key": "date_from",
+									"value": "2025-01-01",
+									"description": "Filter by processing date from (YYYY-MM-DD)"
+								},
+								{
+									"key": "date_to",
+									"value": "2025-12-31",
+									"description": "Filter by processing date to (YYYY-MM-DD)"
+								},
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Number of results to return"
+								}
+							]
+						},
+						"description": "Retrieve documents with specific filters applied"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Document Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/stats/{{account_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"stats",
+								"{{account_id}}"
+							]
+						},
+						"description": "Get document statistics for an account including counts by type, status, and processing metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "Get File Version History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/file-history/{{account_id}}/example-document.pdf?includeInactive=false",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"file-history",
+								"{{account_id}}",
+								"example-document.pdf"
+							],
+							"query": [
+								{
+									"key": "includeInactive",
+									"value": "false",
+									"description": "Include inactive/replaced versions (default: false)"
+								}
+							]
+						},
+						"description": "Get version history for a specific file, showing all versions and their status"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Document Updates",
+			"item": [
+				{
+					"name": "Update Document - Metadata Only",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"document_id\": \"example-doc-uuid-123\",\n  \"title\": \"Updated Document Title - Machine Learning Guide\",\n  \"description\": \"Comprehensive guide to machine learning algorithms and implementation\",\n  \"api_key\": \"new-api-key-456\",\n  \"bot_api_key\": \"new-bot-key-789\",\n  \"system_prompt\": \"You are an expert in machine learning. Provide detailed explanations and practical examples.\",\n  \"inbox_ids\": [\"inbox1\", \"inbox3\", \"inbox4\"],\n  \"is_active\": true,\n  \"metadata\": {\n    \"category\": \"training\",\n    \"priority\": \"high\",\n    \"tags\": [\"ml\", \"ai\", \"documentation\", \"algorithms\"],\n    \"author\": \"Data Science Team\",\n    \"version\": \"1.2\",\n    \"last_reviewed\": \"2025-09-08\"\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/update",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"update"
+							]
+						},
+						"description": "Update document metadata without changing content. Fast operation that doesn't require re-embedding."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Document - Content & Metadata",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"document_id\": \"example-doc-uuid-123\",\n  \"content\": \"Machine Learning is a subset of artificial intelligence that focuses on the development of algorithms and statistical models that enable computers to perform tasks without explicit instructions. Key algorithms include: 1) Supervised Learning - Linear Regression, Decision Trees, Random Forest, Support Vector Machines. 2) Unsupervised Learning - K-means Clustering, Hierarchical Clustering, Principal Component Analysis. 3) Deep Learning - Neural Networks, Convolutional Neural Networks, Recurrent Neural Networks. These algorithms are fundamental for building intelligent systems that can learn from data and make predictions.\",\n  \"title\": \"Machine Learning Algorithms - Complete Guide\",\n  \"description\": \"Comprehensive overview of machine learning algorithms with practical applications\",\n  \"api_key\": \"updated-api-key-789\",\n  \"bot_api_key\": \"updated-bot-key-456\",\n  \"system_prompt\": \"You are an expert machine learning educator. Provide clear explanations with practical examples.\",\n  \"inbox_ids\": [\"inbox1\", \"inbox3\", \"ml-inbox\"],\n  \"metadata\": {\n    \"category\": \"educational\",\n    \"difficulty\": \"intermediate\",\n    \"topics\": [\"supervised-learning\", \"unsupervised-learning\", \"deep-learning\"],\n    \"last_updated\": \"2025-09-08\",\n    \"content_type\": \"algorithmic-guide\"\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/update",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"update"
+							]
+						},
+						"description": "Update document content and metadata. This will regenerate embeddings and update the vector database."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Document Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"document_id\": \"example-doc-uuid-123\",\n  \"status\": \"completed\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"status"
+							]
+						},
+						"description": "Update only the processing status of a document. Valid statuses: completed, processing, failed, archived, active"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Document",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"type": "raw",
+							"raw": "{\n  \"account_id\": 123,\n  \"document_id\": \"example-doc-uuid-123\",\n  \"deleteFromAzure\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multi-rag/document",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multi-rag",
+								"document"
+							]
+						},
+						"description": "Delete a document and all its chunks. Set deleteFromAzure to true to also remove files from Azure Blob Storage."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Basic response time test",
+					"pm.test(\"Response time is less than 10000ms\", function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(10000);",
+					"});",
+					"",
+					"// Status code test for successful responses",
+					"pm.test(\"Status code is successful\", function () {",
+					"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+					"});",
+					"",
+					"// Check if response has success property",
+					"pm.test(\"Response has success property\", function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData).to.have.property('success');",
+					"});",
+					"",
+					"// Log response for debugging",
+					"console.log(\"Response:\", pm.response.json());"
+				]
+			}
+		}
+	]
+}

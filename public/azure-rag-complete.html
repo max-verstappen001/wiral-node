@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure RAG System - Complete Usage Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 { 
+            color: #2c3e50; 
+            text-align: center; 
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        h2 { 
+            color: #3498db; 
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            background: #e8f5e8;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            border-left: 5px solid #27ae60;
+        }
+        .form-group {
+            margin: 20px 0;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+        .result-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .status.success { 
+            background: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+        .status.error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
+        .status.info { 
+            background: #d1ecf1; 
+            color: #0c5460; 
+            border: 1px solid #bee5eb; 
+        }
+        .api-endpoint {
+            background: #343a40;
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .method {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .method.post { background: #fd7e14; }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Azure RAG System - Complete Guide</h1>
+        
+        <div class="highlight-box">
+            <h3>Single API Solution</h3>
+            <p>Upload files to Azure Blob Storage + Extract text + Generate embeddings + Store in database</p>
+            <p><strong>All in one powerful API call!</strong></p>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>📁 File Processing</h3>
+                <ul>
+                    <li>PDF text extraction</li>
+                    <li>Excel sheet processing</li>
+                    <li>Plain text files</li>
+                    <li>Smart content chunking</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h3>☁️ Azure Integration</h3>
+                <ul>
+                    <li>Secure blob storage</li>
+                    <li>Global CDN access</li>
+                    <li>Automatic cleanup</li>
+                    <li>Enterprise security</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h3>🧠 AI Embeddings</h3>
+                <ul>
+                    <li>OpenAI embeddings</li>
+                    <li>Semantic chunking</li>
+                    <li>Vector search</li>
+                    <li>Similarity matching</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>🧪 Test Your Azure RAG System</h2>
+        
+        <div class="test-section">
+            <h3>Complete File Processing Test</h3>
+            
+            <div class="form-group">
+                <label for="account-id">Account ID:</label>
+                <input type="number" id="account-id" value="1" placeholder="Enter your account ID">
+            </div>
+
+            <div class="form-group">
+                <label for="file-upload">Select Files (PDF, TXT, Excel):</label>
+                <input type="file" id="file-upload" multiple accept=".pdf,.txt,.xls,.xlsx,.doc,.docx">
+                <small>Supported: PDF, TXT, Excel files up to 10MB each</small>
+            </div>
+
+            <div class="form-group">
+                <label for="file-title">Title (optional):</label>
+                <input type="text" id="file-title" placeholder="Document title">
+            </div>
+
+            <div class="form-group">
+                <label for="file-description">Description (optional):</label>
+                <textarea id="file-description" rows="3" placeholder="Document description"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="inbox-ids">Inbox IDs (optional):</label>
+                <input type="text" id="inbox-ids" placeholder="1,2,3">
+            </div>
+
+            <button onclick="processWithAzureRAG()" style="background: linear-gradient(135deg, #e74c3c, #c0392b); font-size: 16px; padding: 15px 30px;">
+                🚀 Process with Azure RAG
+            </button>
+            
+            <button onclick="searchDocuments()">🔍 Search Documents</button>
+            <button onclick="listMyFiles()">📄 List My Files</button>
+            <button onclick="testSystemHealth()">❤️ Health Check</button>
+
+            <div class="progress-bar" id="progress-bar" style="display: none;">
+                <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+            </div>
+
+            <div id="test-results" class="result-box" style="display: none;"></div>
+        </div>
+
+        <h2>🔍 Document Search</h2>
+        
+        <div class="test-section">
+            <div class="form-group">
+                <label for="search-query">Search Query:</label>
+                <input type="text" id="search-query" placeholder="What are you looking for?">
+            </div>
+
+            <div class="form-group">
+                <label for="search-limit">Number of Results:</label>
+                <input type="number" id="search-limit" value="5" min="1" max="20">
+            </div>
+
+            <button onclick="performSearch()">🔍 Search Now</button>
+
+            <div id="search-results" class="result-box" style="display: none;"></div>
+        </div>
+
+        <h2>📚 API Reference</h2>
+
+        <div class="api-endpoint">
+            <h4><span class="method post">POST</span>/api/azure-rag/upload</h4>
+            <p>Complete Azure RAG processing - Upload, extract, embed, and store</p>
+            <pre>
+curl -X POST http://localhost:3009/api/azure-rag/upload \\
+  -F "files=@document.pdf" \\
+  -F "account_id=1" \\
+  -F "title=My Document" \\
+  -F "description=Important document"
+            </pre>
+        </div>
+
+        <div class="api-endpoint">
+            <h4><span class="method post">POST</span>/api/azure-rag/search</h4>
+            <p>Search documents using AI embeddings</p>
+            <pre>
+curl -X POST http://localhost:3009/api/azure-rag/search \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "account_id": 1,
+    "query": "pricing policy",
+    "limit": 5
+  }'
+            </pre>
+        </div>
+
+        <div class="api-endpoint">
+            <h4><span class="method">GET</span>/api/azure-rag/files/:accountId</h4>
+            <p>List all files for an account</p>
+            <pre>curl -X GET http://localhost:3009/api/azure-rag/files/1</pre>
+        </div>
+
+        <div class="api-endpoint">
+            <h4><span class="method">GET</span>/api/azure-rag/health</h4>
+            <p>Check system health and Azure connection</p>
+            <pre>curl -X GET http://localhost:3009/api/azure-rag/health</pre>
+        </div>
+
+        <h2>✨ System Features</h2>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🔄 Automatic Processing</h4>
+                <p>Files are automatically uploaded to Azure, text is extracted, and embeddings are generated - all in one API call.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🧩 Smart Chunking</h4>
+                <p>RecursiveCharacterTextSplitter ensures optimal text chunks with proper overlap for better search results.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🗄️ Dual Storage</h4>
+                <p>Files stored in Azure Blob Storage, embeddings in MongoDB for fast retrieval and search.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🔧 Error Handling</h4>
+                <p>Automatic cleanup on failures, comprehensive error reporting, and graceful degradation.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isProcessing = false;
+
+        async function processWithAzureRAG() {
+            if (isProcessing) return;
+            
+            const accountId = document.getElementById('account-id').value;
+            const fileInput = document.getElementById('file-upload');
+            const title = document.getElementById('file-title').value;
+            const description = document.getElementById('file-description').value;
+            const inboxIds = document.getElementById('inbox-ids').value;
+
+            if (!accountId || !fileInput.files.length) {
+                showResult('Please enter account ID and select files', 'error');
+                return;
+            }
+
+            isProcessing = true;
+            showProgress(0);
+
+            const formData = new FormData();
+            for (let file of fileInput.files) {
+                formData.append('files', file);
+            }
+            formData.append('account_id', accountId);
+            if (title) formData.append('title', title);
+            if (description) formData.append('description', description);
+            if (inboxIds) formData.append('inbox_ids', inboxIds);
+
+            try {
+                showResult('🚀 Starting Azure RAG processing...', 'info');
+                showProgress(20);
+
+                const response = await fetch('/api/azure-rag/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                showProgress(80);
+                const data = await response.json();
+                showProgress(100);
+
+                if (response.ok) {
+                    showResult(`✅ SUCCESS!\\n\\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ ERROR!\\n\\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+
+            } catch (error) {
+                showResult(`❌ NETWORK ERROR!\\n\\n${error.message}`, 'error');
+            } finally {
+                isProcessing = false;
+                setTimeout(() => hideProgress(), 2000);
+            }
+        }
+
+        async function performSearch() {
+            const accountId = document.getElementById('account-id').value;
+            const query = document.getElementById('search-query').value;
+            const limit = document.getElementById('search-limit').value;
+
+            if (!accountId || !query.trim()) {
+                showSearchResult('Please enter account ID and search query', 'error');
+                return;
+            }
+
+            try {
+                showSearchResult('🔍 Searching documents...', 'info');
+
+                const response = await fetch('/api/azure-rag/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        account_id: parseInt(accountId), 
+                        query: query, 
+                        limit: parseInt(limit) 
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showSearchResult(`🎯 SEARCH RESULTS!\\n\\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showSearchResult(`❌ SEARCH ERROR!\\n\\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+
+            } catch (error) {
+                showSearchResult(`❌ SEARCH FAILED!\\n\\n${error.message}`, 'error');
+            }
+        }
+
+        async function listMyFiles() {
+            const accountId = document.getElementById('account-id').value;
+            
+            if (!accountId) {
+                showResult('Please enter account ID', 'error');
+                return;
+            }
+
+            try {
+                showResult('📄 Loading your files...', 'info');
+
+                const response = await fetch(`/api/azure-rag/files/${accountId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`📂 YOUR FILES!\\n\\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ LIST ERROR!\\n\\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+
+            } catch (error) {
+                showResult(`❌ LIST FAILED!\\n\\n${error.message}`, 'error');
+            }
+        }
+
+        async function testSystemHealth() {
+            try {
+                showResult('❤️ Checking system health...', 'info');
+
+                const response = await fetch('/api/azure-rag/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ SYSTEM HEALTHY!\\n\\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult(`⚠️ HEALTH ISSUES!\\n\\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+
+            } catch (error) {
+                showResult(`❌ HEALTH CHECK FAILED!\\n\\n${error.message}`, 'error');
+            }
+        }
+
+        function showResult(message, type = 'info') {
+            const container = document.getElementById('test-results');
+            const statusClass = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            container.innerHTML = `<div class="status ${statusClass}"><pre>${message}</pre></div>`;
+            container.style.display = 'block';
+            container.scrollTop = 0;
+        }
+
+        function showSearchResult(message, type = 'info') {
+            const container = document.getElementById('search-results');
+            const statusClass = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            container.innerHTML = `<div class="status ${statusClass}"><pre>${message}</pre></div>`;
+            container.style.display = 'block';
+            container.scrollTop = 0;
+        }
+
+        function showProgress(percent) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressFill = document.getElementById('progress-fill');
+            progressBar.style.display = 'block';
+            progressFill.style.width = percent + '%';
+        }
+
+        function hideProgress() {
+            document.getElementById('progress-bar').style.display = 'none';
+        }
+
+        // Initialize with a welcome message
+        document.addEventListener('DOMContentLoaded', function() {
+            showResult('🎉 Welcome to Azure RAG System!\\n\\nSelect files and click "Process with Azure RAG" to start.', 'info');
+        });
+    </script>
+</body>
+</html>
