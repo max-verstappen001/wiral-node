@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import mongoConnect from "./config/mongoConnect.js";
 import ragRoutes from "./routes/ragRoutes.js";
 import enhancedRagRoutes from "./routes/enhancedRagRoutes.js";
-import debugRoutes from "./routes/debugRoutes.js";
 import azureUploadRoutes from "./routes/azureUploadRoutes.js";
 import azureRagRoutes from "./routes/azureRagRoutes.js";
 import multiFileRagRoutes from "./routes/multiFileRagRoutes.js";
@@ -25,7 +24,8 @@ import sharedLangfuseService from "./utils/langfuse.js";
 
 
 // RAG Service
-import RagService from "./service/ragService.js";
+import RagService from "./service/ragService1.js";
+const ragServices = new RagService();
 
 dotenv.config();
 
@@ -68,8 +68,12 @@ async function retrieveKBChunks(accountId, query, topK = 10) {
     const results = await ragService.searchDocuments({
       account_id: accountId,
       query,
-      limit: topK
+      limit: topK,
+      searchMethod: "hybrid" // Use hybrid search for better relevance
+      // limit: topK --- IGNORE ---
     });
+
+    logger.info(`Retrieved ${results.length} KB chunks for account ${accountId} and query "${query}"`);
 
     return results.map(result => ({
       content: result.content,
@@ -141,9 +145,13 @@ const prompt = ChatPromptTemplate.fromMessages([
   [
     "system",
     `You are the AI Support Agent for {account_name}.
-Only answer using the context below (snippets from this account's knowledge base + recent conversation).
-If the answer isn't clearly supported, ask a brief clarifying question or propose escalation.
-Cite sources like [Title]. Keep answers concise and helpful.`,
+Always answer ONLY using the context below (snippets from this account's knowledge base and recent conversation).
+If the answer is not clearly supported by the context, ask a clarifying question or suggest escalation.
+Always cite sources in the format [Title]. Keep your answers concise, helpful, and grounded in the provided information.
+Never answer questions about topics not present in the context. Do not make up information or speculate.
+Greet the user by name if you know it, otherwise use a generic greeting.
+If multiple policies or answers conflict, ask a clarifying question.
+`,
   ],
   [
     "human",
@@ -156,19 +164,27 @@ Recent conversation (most recent last):
 Knowledge snippets:
 {kb}
 
+Don't answer questions about topics not in the context.
+Don't do anything that isn't in the context above.
+Make sure to ground your answer in the provided context.
+your a chat agent for {account_name}.
+Greet the user by name if you know it.
+If you don't know the user's name, use a generic greeting.
+
 Produce a direct answer for the user. If multiple policies conflict, ask a clarifying question.`,
+
   ],
 ]);
 
 const llm = new ChatOpenAI({
   apiKey: OPENAI_API_KEY,
   model: MODEL,
-  temperature: 0.2,
+  temperature: 0.1,
 });
 
 const chain = RunnableSequence.from([
   async (input) => {
-    const { account_id, account_name, user_text, recent_messages } = input;
+    const { account_id, account_name, user_text, recent_messages, system_prompt, attributes } = input;
 
     // Build readable transcript from last messages (skip private notes)
     const transcript = (recent_messages || [])
@@ -204,9 +220,6 @@ app.use("/api/rag", ragRoutes);
 
 // Mount Enhanced RAG routes with Firecrawl support
 app.use("/api/rag-enhanced", enhancedRagRoutes);
-
-// Mount debug routes
-app.use("/api/debug", debugRoutes);
 
 // Mount Azure upload routes
 app.use("/api/azure", azureUploadRoutes);
@@ -270,6 +283,7 @@ app.post("/chatwoot-webhook", async (req, res) => {
     const token = await Client.findOne({ account_id: account_id, is_active: true })
     const CHATWOOT_BOT_TOKEN = token?.bot_api_key;
     const api_access_token = token?.api_key;
+    const systemPrompt = token?.system_prompt || null;
 
     if (!CHATWOOT_BOT_TOKEN) {
       logger.warn(`No bot_api_key found for account_id ${account_id}. Cannot send replies.`);
@@ -288,15 +302,16 @@ app.post("/chatwoot-webhook", async (req, res) => {
       account_id.toString(),
       `conversation_${conversationId}`,
       {
+        account_id: account_id,
         user_message: content,
         conversation_id: conversationId,
-        account_name: accountName
+        account_name: accountName,
       },
       {
         conversation_id: conversationId,
         contact_id: contact_id,
         message_type: message_type,
-        channel: "whatsapp"
+        channel: req.body?.inbox?.name || "unknown"
       }
     );
 
@@ -308,12 +323,17 @@ app.post("/chatwoot-webhook", async (req, res) => {
     // Track tokens from direct LLM callback
     let tokenUsageFromResponse = null;
 
+
     const aiReply = await chain.invoke(
       {
         account_id,
         account_name: accountName,
         user_text: content,
         recent_messages: lastMessages,
+        system_prompt: systemPrompt,
+        attributes: attributes,
+        // data: data
+
       },
       {
         callbacks: [
