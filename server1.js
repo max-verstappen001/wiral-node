@@ -1,0 +1,740 @@
+
+import express from "express";
+import axios from "axios";
+import logger from "./utils/logger.js";
+import dotenv from "dotenv";
+import mongoConnect from "./config/mongoConnect.js";
+import ragRoutes from "./routes/ragRoutes.js";
+import enhancedRagRoutes from "./routes/enhancedRagRoutes.js";
+import azureUploadRoutes from "./routes/azureUploadRoutes.js";
+import azureRagRoutes from "./routes/azureRagRoutes.js";
+import multiFileRagRoutes from "./routes/multiFileRagRoutes.js";
+import os from "os";
+import cors from "cors";
+
+// LangChain / OpenAI
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { RunnableSequence } from "@langchain/core/runnables";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+
+import { Client } from "./model/clientModel.js";
+
+// Langfuse
+import sharedLangfuseService from "./utils/langfuse.js";
+import CustomAttributeDefinition from "./model/customAttributes.js";
+import AttributeExtractor from "./utils/attributeExtraction.js";
+
+const attributeExtractor = new AttributeExtractor(logger);
+
+
+// RAG Service
+import RagService from "./service/ragService1.js";
+import { json } from "sequelize";
+const RagServices = new RagService();
+
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+
+// Serve static files from public directory
+app.use(express.static('public'));
+
+app.use(cors({
+    origin: "*", // Or specify your frontend URL for better security
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+// Initialize RAG service
+const ragService = new RagService();
+
+// ---------- Config ----------
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const CHATWOOT_URL = process.env.CHATWOOT_URL;
+
+// Per-1K token pricing
+const PRICING = {
+    "gpt-4o-mini": {
+        input: Number(process.env.MODEL_PRICING_GPT4O_MINI_INPUT || 0.15),
+        output: Number(process.env.MODEL_PRICING_GPT4O_MINI_OUTPUT || 0.60),
+    },
+};
+
+// ---------- Embeddings ----------
+const embeddings = new OpenAIEmbeddings({
+    apiKey: OPENAI_API_KEY,
+    model: "text-embedding-3-small",
+});
+
+// ---------- KB Retriever using RAG Service ----------
+async function retrieveKBChunks(accountId, query, topK = 10) {
+    try {
+        const results = await RagServices.searchDocuments({
+            account_id: accountId,
+            query,
+            limit: topK,
+            searchMethod: "hybrid"
+        });
+
+        logger.info(`Retrieved ${results.length} KB chunks for account ${accountId} and query "${query}"`);
+
+        // Map the correct keys from searchDocuments
+        return results.map(result => ({
+            content: result.content,
+            document_id: result.document_id,
+            source_title: result.source_title,
+            source_uri: result.source_uri,
+            score: result.score
+        }));
+    } catch (error) {
+        logger.error(`Error retrieving KB chunks for account ${accountId}:`, error.message);
+        return [];
+    }
+}
+
+// ---------- Chatwoot helpers ----------
+async function fetchLastMessages(accountId, conversationId, limit = 20, api_access_token) {
+    const res = await axios.get(
+        `${CHATWOOT_URL}/api/v1/accounts/${accountId}/conversations/${conversationId}/messages?per_page=100`,
+        {
+            headers: { "Content-Type": "application/json", api_access_token: api_access_token },
+            timeout: 10000,
+        }
+    );
+    const all = Array.isArray(res.data) ? res.data : res.data?.payload || [];
+    return all.slice(-limit);
+}
+
+async function sendChatwootReply(accountId, conversationId, content, CHATWOOT_BOT_TOKEN) {
+    await axios.post(
+        `${CHATWOOT_URL}/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`,
+        { content, message_type: "outgoing" },
+        {
+            headers: { "Content-Type": "application/json", api_access_token: CHATWOOT_BOT_TOKEN },
+            timeout: 10000,
+        }
+    );
+}
+
+// ---------- Contact and Attribute Management ----------
+async function getContactAttributes(accountId, inbox_id, contactId, api_access_token) {
+    try {
+        logger.info(`Fetching contact attributes for contact ${contactId} in inbox ${inbox_id}`);
+        const res = await axios.get(
+            // https://app.chatwoot.com/public/api/v1/inboxes/{inbox_identifier}/contacts/{contact_identifier}
+
+            `${CHATWOOT_URL}/api/v1/inboxes/${inbox_id}/contacts/${contactId}`,
+            {
+                headers: { "Content-Type": "application/json", api_access_token: api_access_token },
+                timeout: 10000,
+            }
+        );
+        const contact = res.data?.payload || null;
+        if (!contact) {
+            logger.error(`No contact data found for contact ${contactId}`);
+            return {};
+        }
+        const attributes = contact.custom_attributes || {};
+        logger.info(`Fetched contact ${contactId} attributes:`, attributes);
+        return attributes;
+    } catch (error) {
+        logger.error(`Error fetching contact attributes for contact ${contactId}:`, error.message);
+        return {};
+    }
+}
+
+async function updateContactAttributes(accountId, contactId, attributes, api_access_token) {
+    try {
+        await axios.put(
+            `${CHATWOOT_URL}/api/v1/accounts/${accountId}/contacts/${contactId}`,
+            { custom_attributes: attributes },
+            {
+                headers: { "Content-Type": "application/json", api_access_token: api_access_token },
+                timeout: 10000,
+            }
+        );
+        logger.info(`Updated contact ${contactId} attributes:`, attributes);
+    } catch (error) {
+        logger.error(`Error updating contact attributes for contact ${contactId}:`, error.message);
+    }
+}
+
+// Utility: Extract contact attributes from webhook payload if available
+function extractContactAttributesFromWebhook(body) {
+    logger.info(`Extracting contact attributes from webhook payload: ${JSON.stringify(body?.conversation?.meta?.sender?.custom_attributes, null, 2)}`);
+    return body?.sender?.custom_attributes
+        || body?.conversation?.meta?.sender?.custom_attributes
+        || (body?.conversation?.messages?.[0]?.sender?.custom_attributes)
+        || null;
+}
+
+async function getAttributes(accountId) {
+    try {
+        const client = await Client.findOne({ account_id: accountId, is_active: true });
+        if (!client || !client.api_key) {
+            logger.error(`[DEBUG] No active client or api_key found for account ${accountId}`);
+            return [];
+        }
+        const ACCESS_TOKEN = client.api_key;
+        const { data: defs } = await axios.get(`${process.env.CHATWOOT_URL}/api/v1/accounts/${accountId}/custom_attribute_definitions`, {
+            headers: { "Content-Type": "application/json", api_access_token: ACCESS_TOKEN },
+            params: { attribute_model: 1 },
+            timeout: 10000,
+        });
+        logger.info(`Fetched ${defs.length} attribute definitions for account ${accountId} full <object data="${JSON.stringify(defs)}" type="application/json"></object>`);
+        return defs || [];
+    } catch (error) {
+        logger.error(`[DEBUG] Error fetching attributes for account ${accountId}:`, error.message);
+        return [];
+    }
+}
+
+// ---------- Custom Regex-Based Attribute Collection Logic ----------
+
+function checkMissingAttributes(requiredAttributes, currentAttributes) {
+    const missing = [];
+    for (const attr of requiredAttributes) {
+        if (!currentAttributes[attr.attribute_key] || currentAttributes[attr.attribute_key] === '') {
+            missing.push(attr);
+        }
+    }
+    return missing;
+}
+
+// Enhanced extraction function that processes ALL attributes at once
+function extractAllAttributesFromMessage(message, requiredAttributes) {
+    const extractedAttributes = {};
+
+    if (!message || !requiredAttributes || requiredAttributes.length === 0) {
+        return extractedAttributes;
+    }
+
+    logger.info(`Attempting to extract attributes from message: "${message}"`);
+    logger.info(`Required attributes: ${JSON.stringify(requiredAttributes.map(attr => ({
+        key: attr.attribute_key,
+        has_regex: !!attr.regex_pattern,
+        has_cue: !!attr.regex_cue
+    })))}`);
+
+    for (const attribute of requiredAttributes) {
+        const extracted = extractAttributeFromMessage(message, attribute);
+        if (extracted) {
+            extractedAttributes[attribute.attribute_key] = extracted;
+            logger.info(`Successfully extracted ${attribute.attribute_key}: ${extracted}`);
+        }
+    }
+
+    return extractedAttributes;
+}
+
+// Dynamic attribute extraction using custom regex patterns from database
+function extractAttributeFromMessage(message, attributeDefinition) {
+    if (!message || !attributeDefinition) return null;
+
+    const {
+        attribute_key,
+        attribute_display_name,
+        attribute_description,
+        regex_pattern,
+        regex_cue,
+        attribute_values,
+        attribute_display_type
+    } = attributeDefinition;
+
+    logger.info(`Extracting "${attribute_key}" using ${regex_pattern ? 'custom regex' : 'dynamic patterns'}`);
+
+    let extractedValue = null;
+
+    // Priority 1: Use custom regex pattern if provided
+    if (regex_pattern) {
+        extractedValue = extractUsingCustomRegex(message, regex_pattern, regex_cue, attribute_key);
+        if (extractedValue) {
+            logger.info(`Extracted ${attribute_key}: "${extractedValue}" using custom regex pattern`);
+            return postProcessExtractedValue(extractedValue, attributeDefinition);
+        }
+    }
+
+    // Priority 2: Use attribute values for exact matching if provided
+    if (attribute_values && attribute_values.length > 0) {
+        extractedValue = extractUsingAttributeValues(message, attribute_values, attribute_key);
+        if (extractedValue) {
+            logger.info(`Extracted ${attribute_key}: "${extractedValue}" using attribute values matching`);
+            return postProcessExtractedValue(extractedValue, attributeDefinition);
+        }
+    }
+
+    // Priority 3: Use dynamic patterns based on attribute metadata
+    extractedValue = extractUsingDynamicPatterns(message, attributeDefinition);
+    if (extractedValue) {
+        logger.info(`Extracted ${attribute_key}: "${extractedValue}" using dynamic patterns`);
+        return postProcessExtractedValue(extractedValue, attributeDefinition);
+    }
+
+    logger.info(`No extraction found for ${attribute_key}`);
+    return null;
+}
+
+// Extract using custom regex pattern from database
+function extractUsingCustomRegex(message, regexPattern, regexCue, attributeKey) {
+    try {
+        // If regex_cue is provided, first check if the cue exists in the message
+        if (regexCue) {
+            const cueRegex = new RegExp(regexCue, 'i');
+            if (!cueRegex.test(message)) {
+                logger.info(`Regex cue "${regexCue}" not found in message for ${attributeKey}`);
+                return null;
+            }
+            logger.info(`Regex cue "${regexCue}" found, applying custom pattern for ${attributeKey}`);
+        }
+
+        // Apply the custom regex pattern
+        const customRegex = new RegExp(regexPattern, 'i');
+        const match = message.match(customRegex);
+
+        if (match) {
+            // Return the first capturing group, or the full match if no groups
+            return match[1] || match[0];
+        }
+
+        return null;
+    } catch (error) {
+        logger.error(`Error applying custom regex for ${attributeKey}:`, error.message);
+        return null;
+    }
+}
+
+// Extract using predefined attribute values (for dropdown/select type attributes)
+function extractUsingAttributeValues(message, attributeValues, attributeKey) {
+    const lowerMessage = message.toLowerCase();
+
+    // Look for exact matches of attribute values in the message
+    for (const value of attributeValues) {
+        const lowerValue = value.toLowerCase();
+
+        // Direct match
+        if (lowerMessage.includes(lowerValue)) {
+            return value;
+        }
+
+        // Fuzzy matching for slight variations
+        const words = lowerValue.split(/\s+/);
+        if (words.length > 1 && words.every(word => lowerMessage.includes(word))) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+// Fallback dynamic patterns when no custom regex is provided
+function extractUsingDynamicPatterns(message, attributeDefinition) {
+    const {
+        attribute_key,
+        attribute_display_name,
+        attribute_description
+    } = attributeDefinition;
+
+    const lowerMessage = message.toLowerCase();
+    const lowerAttributeKey = attribute_key.toLowerCase();
+    const lowerDisplayName = (attribute_display_name || attribute_key).toLowerCase();
+
+    // Generate fallback patterns
+    const patterns = [
+        // Direct attribute key patterns
+        {
+            regex: new RegExp(`(?:${lowerAttributeKey})(?:\\s*is|\\s*:|\\s+)\\s*([a-zA-Z0-9\\s&.-]+)`, 'i'),
+            description: 'Attribute key with separator'
+        },
+        {
+            regex: new RegExp(`(?:my\\s+${lowerAttributeKey})(?:\\s*is|\\s*:|\\s+)\\s*([a-zA-Z0-9\\s&.-]+)`, 'i'),
+            description: 'My + attribute key'
+        },
+
+        // Display name patterns
+        {
+            regex: new RegExp(`(?:${lowerDisplayName})(?:\\s*is|\\s*:|\\s+)\\s*([a-zA-Z0-9\\s&.-]+)`, 'i'),
+            description: 'Display name with separator'
+        },
+
+        // Context-aware patterns based on description
+        ...generateDescriptionPatterns(attribute_description),
+
+        // Generic contextual patterns
+        {
+            regex: new RegExp(`${lowerAttributeKey}[\\s:]+([^\\n\\r.,;!?]+)`, 'i'),
+            description: 'Direct key context'
+        }
+    ];
+
+    // Try each pattern
+    for (const pattern of patterns) {
+        try {
+            const match = message.match(pattern.regex);
+            if (match && match[1] && match[1].trim()) {
+                logger.info(`Matched using fallback pattern: ${pattern.description}`);
+                return match[1].trim();
+            }
+        } catch (error) {
+            logger.warn(`Pattern error: ${error.message}`);
+            continue;
+        }
+    }
+
+    return null;
+}
+
+// Generate patterns from attribute description
+function generateDescriptionPatterns(description) {
+    const patterns = [];
+
+    if (!description) return patterns;
+
+    // Extract keywords from description (words longer than 3 characters)
+    const keywords = description.toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 3 && !isStopWord(word));
+
+    // Create patterns from description keywords
+    for (const keyword of keywords) {
+        patterns.push({
+            regex: new RegExp(`(?:${keyword})(?:\\s*is|\\s*:|\\s+)\\s*([a-zA-Z0-9\\s&.-]+)`, 'i'),
+            description: `Description keyword: ${keyword}`
+        });
+    }
+
+    return patterns;
+}
+
+// Helper function to check stop words
+function isStopWord(word) {
+    const stopWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'over', 'after'];
+    return stopWords.includes(word.toLowerCase());
+}
+
+// Enhanced post-processing with attribute definition context
+function postProcessExtractedValue(value, attributeDefinition) {
+    if (!value) return null;
+
+    value = value.trim();
+
+    const {
+        attribute_key,
+        attribute_values,
+        attribute_display_type,
+        attribute_description
+    } = attributeDefinition;
+
+    // If we have predefined values, try to match to closest one
+    if (attribute_values && attribute_values.length > 0) {
+        const matchedValue = findClosestAttributeValue(value, attribute_values);
+        if (matchedValue) {
+            return matchedValue;
+        }
+    }
+
+    // Special handling for specific attribute types based on description
+    if (attribute_description) {
+        const lowerDescription = attribute_description.toLowerCase();
+
+        // Location handling
+        if (lowerDescription.includes('location') || lowerDescription.includes('address')) {
+            return cleanLocationValue(value);
+        }
+
+        // Classification handling (Hot, Warm, Cold example)
+        if (lowerDescription.includes('classification') || lowerDescription.includes('can be one of')) {
+            return cleanClassificationValue(value, attribute_description);
+        }
+    }
+
+    // Generic text cleanup - just trim and clean basic formatting
+    return value.replace(/\s+/g, ' ').trim();
+}
+
+// Find closest matching value from predefined attribute values
+function findClosestAttributeValue(extractedValue, attributeValues) {
+    const lowerExtracted = extractedValue.toLowerCase();
+
+    // Exact match
+    for (const value of attributeValues) {
+        if (value.toLowerCase() === lowerExtracted) {
+            return value;
+        }
+    }
+
+    // Partial match
+    for (const value of attributeValues) {
+        if (lowerExtracted.includes(value.toLowerCase()) || value.toLowerCase().includes(lowerExtracted)) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+// Specialized cleaning functions for your actual use cases
+function cleanLocationValue(value) {
+    // Remove common location prefixes/suffixes
+    return value.replace(/^(at|in|from|location:?)\s+/i, '')
+        .replace(/\s+(area|location|place)$/i, '')
+        .trim();
+}
+
+function cleanClassificationValue(value, description) {
+    // Extract possible values from description like "Hot, Warm, Cold"
+    const possibleValues = extractPossibleValuesFromDescription(description);
+
+    if (possibleValues.length > 0) {
+        return findClosestAttributeValue(value, possibleValues);
+    }
+
+    return value;
+}
+
+function extractPossibleValuesFromDescription(description) {
+    // Look for patterns like "Can be one of these 3 values - Hot, Warm, Cold"
+    const matches = description.match(/(?:can be|values?)[^-]*-\s*([^.]+)/i);
+    if (matches) {
+        return matches[1].split(',').map(v => v.trim());
+    }
+
+    return [];
+}
+
+function shouldIgnoreMessage({ req, logger }) {
+    const { content, sender, message_type } = req.body;
+    const messageSenderType = req.body.conversation?.messages?.[0]?.sender_type;
+    if (messageSenderType === "AgentBot" || messageSenderType === "Agent") {
+        logger.info(`Ignoring message from bot/agent. Sender type: ${messageSenderType}`);
+        return true;
+    }
+    if (messageSenderType && messageSenderType !== "Contact") {
+        logger.info(`Ignoring non-contact message. Sender type: ${messageSenderType}`);
+        return true;
+    }
+    if (sender?.type && sender.type !== "contact") {
+        logger.info(`Ignoring non-contact message. Top-level sender type: ${sender?.type}`);
+        return true;
+    }
+    if (message_type && message_type !== "incoming") {
+        logger.info(`Ignoring ${message_type} message`);
+        return true;
+    }
+    if (!content || String(content).trim() === "") {
+        logger.info(`Ignoring empty message`);
+        return true;
+    }
+    return false;
+}
+
+// ---------- LLM + Prompt ----------
+const MODEL = "gpt-4o-mini";
+
+// Enhanced prompt that handles attribute collection
+// Replace your existing prompt with this enhanced version
+
+const prompt = ChatPromptTemplate.fromMessages([
+    [
+        "system",
+        `You are the AI Support Agent for {account_name}.
+
+{system_prompt}
+
+IMPORTANT INSTRUCTIONS:
+1. ATTRIBUTE COLLECTION: If missing_attributes is provided and not empty, you MUST ask for those attributes before proceeding with the main query.
+2. ATTRIBUTE CHANGES: Any attribute changes have already been processed. If mentioned in the conversation, acknowledge them naturally.
+3. Ask for missing attributes in a conversational, natural way - only ONE at a time.
+4. After collecting an attribute, acknowledge it and proceed to help with their query or ask for the next missing attribute.
+5. Always ground your answers in the context below (knowledge base and conversation history).
+6. If the answer is not in the context, ask clarifying questions or suggest escalation.
+8. Never make up information or speculate.
+9. Greet the user by name if you know it.
+10. Be natural and conversational - avoid sounding robotic or overly formal.
+
+ATTRIBUTE STATUS:
+- Missing attributes that need collection: {missing_attributes}
+- Currently collected attributes: {current_attributes}
+
+CONVERSATION CONTEXT:
+The user may have just updated some information. Handle this naturally in your response.
+`,
+    ],
+    [
+        "human",
+        `User message: {user}
+
+Recent conversation (most recent last):
+{recent_transcript}
+
+Knowledge snippets:
+{kb}
+
+Instructions:
+- If there are missing_attributes, prioritize collecting them before answering the main query
+- Be conversational and natural when asking for missing information
+- Ground your answer in the provided context
+- Greet the user appropriately if this seems like a new conversation
+- If multiple policies conflict, ask clarifying questions
+- Handle any information updates naturally without being repetitive`,
+    ],
+]);
+
+const llm = new ChatOpenAI({
+    apiKey: OPENAI_API_KEY,
+    model: MODEL,
+    temperature: 0.4,
+});
+
+const chain = RunnableSequence.from([
+    async (input) => {
+        const {
+            account_id,
+            account_name,
+            user_text,
+            recent_messages,
+            system_prompt,
+            contact_attributes,
+            missing_attributes
+        } = input;
+
+        // Build readable transcript from last messages (skip private notes)
+        const transcript = (recent_messages || [])
+            .filter((m) => !m.private)
+            .map((m) => {
+                const who = m.message_type === "incoming" ? "Customer" : (m.sender?.type || "Agent").toString();
+                const text = (m.content || "").replace(/\s+/g, " ").trim();
+                return `${who}: ${text}`;
+            })
+            .join("\n");
+
+        // Retrieve KB chunks (per tenant)
+        const hits = await retrieveKBChunks(account_id, user_text, 10);
+        const kbBlock = (hits || [])
+            .map((h) => `• ${String(h.content || "").trim()} [${h.source_title || "KB"}]`)
+            .join("\n");
+
+        // Format missing attributes for the prompt
+        const missingAttrText = (missing_attributes || [])
+            .map(attr => `- ${attr.attribute_display_name || attr.attribute_key} (${attr.attribute_description || 'Required field'})`)
+            .join("\n");
+
+        // Format current attributes
+        const currentAttrText = Object.entries(contact_attributes || {})
+            .map(([key, value]) => `- ${key}: ${value}`)
+            .join("\n");
+
+        return {
+            account_id,
+            account_name,
+            user: user_text,
+            recent_transcript: transcript,
+            kb: kbBlock || "No KB snippets available.",
+            system_prompt: system_prompt || "",
+            missing_attributes: missingAttrText || "None",
+            current_attributes: currentAttrText || "None collected yet",
+        };
+    },
+    prompt,
+    llm,
+    new StringOutputParser(),
+]);
+
+// Mount RAG routes
+app.use("/api/rag", ragRoutes);
+app.use("/api/rag-enhanced", enhancedRagRoutes);
+app.use("/api/azure", azureUploadRoutes);
+app.use("/api/azure-rag", azureRagRoutes);
+app.use("/api/multi-rag", multiFileRagRoutes);
+
+// ---------- Enhanced Webhook with Attribute Collection ----------
+app.post("/chatwoot-webhook", async (req, res) => {
+
+
+    const { content, conversation, message_type } = req.body;
+    const account_id = req.body.account?.id;
+    const contact_id = req.body.conversation?.contact_inbox?.contact_id;
+
+
+
+    // Loop prevention - same as before
+    const loopPreventionResult = shouldIgnoreMessage({ req, logger });
+    if (loopPreventionResult) return res.sendStatus(200);
+    logger.info(`Webhook received: ${JSON.stringify(req.body, null, 2)}`);
+    logger.info(`Account ID: ${account_id}, Contact ID: ${contact_id}`);
+
+    const conversationId = conversation?.id;
+    const accountName = req.body.account?.name || `Account ${account_id}`;
+
+    try {
+        const client = await Client.findOne({ account_id: account_id, is_active: true });
+        if (!client) {
+            logger.info(`No active client found for account_id ${account_id}. Skipping AI response.`);
+            return res.sendStatus(200);
+        }
+
+        const CHATWOOT_BOT_TOKEN = client?.bot_api_key;
+        const api_access_token = client?.api_key;
+        const systemPrompt = client?.system_prompt || null;
+
+        if (!CHATWOOT_BOT_TOKEN || !api_access_token) {
+            logger.warn(`Missing API keys for account_id ${account_id}. Cannot proceed.`);
+            return res.sendStatus(200);
+        }
+
+        // Get required attributes for this account
+        const requiredAttributes = await getAttributes(account_id);
+        logger.info(`Found ${requiredAttributes.length} required attributes for account ${account_id}`);
+
+        // Get current contact attributes
+        let currentContactAttributes = extractContactAttributesFromWebhook(req.body);
+        if (currentContactAttributes && typeof currentContactAttributes === 'object') {
+            logger.info(`Current contact attributes (from webhook):`, currentContactAttributes);
+        } else {
+            currentContactAttributes = await getContactAttributes(account_id, req.body?.inbox?.id, contact_id, api_access_token);
+            logger.info(`Current contact attributes (from API):`, currentContactAttributes);
+        }
+
+        // STEP 1: Check for attribute change intent FIRST
+        const changeResult = await attributeExtractor.processAttributeChanges(
+            content,
+            currentContactAttributes,
+            requiredAttributes,
+            api_access_token,
+            account_id,
+            contact_id
+        );
+
+        let updatedAttributes = { ...currentContactAttributes };
+        let aiResponseSuffix = '';
+        let shouldProceedWithNormalFlow = true;
+
+        if (changeResult.hasChanges) {
+            if (changeResult.success) {
+                // Attribute was successfully changed
+                updatedAttributes = changeResult.updatedAttributes;
+                aiResponseSuffix = ` ${changeResult.confirmationMessage}`;
+                logger.info(`Attribute successfully changed:`, changeResult.changeDetails);
+                shouldProceedWithNormalFlow = true;
+            } else if (changeResult.needsConfirmation) {
+                logger.info(`Attribute change needs confirmation`);
+                await sendChatwootReply(account_id, conversationId, changeResult.clarificationQuestion, CHATWOOT_BOT_TOKEN);
+                return res.sendStatus(200);
+            } else {
+                logger.error(`Attribute change failed:`, changeResult.error);
+                aiResponseSuffix = ` I had trouble updating that information. Could you please try again?`;
+            }
+        }
+        // (rest of the webhook handler logic goes here)
+    } catch (err) {
+        if (err.response) {
+            logger.error(`API Error (status: ${err.response.status}): ${JSON.stringify(err.response.data)}`);
+        } else if (err.request) {
+            logger.error("No response received from API: " + err.message);
+        } else {
+            logger.error("Error: " + err.message);
+        }
+        res.sendStatus(500);
+    }
+});

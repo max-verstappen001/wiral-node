@@ -1,18 +1,18 @@
-// vectorStore.js - Local MongoDB implementation
-import { MongoDBAtlasVectorSearch } from "@langchain/mongodb";
+// vectorStore.js - Fixed Local MongoDB implementation
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { MongoClient } from "mongodb";
 import logger from "./logger.js";
 
+import dotenv from "dotenv";
+dotenv.config();
 const embeddings = new OpenAIEmbeddings({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
 // Local MongoDB configuration
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
-const DB_NAME = process.env.DB_NAME || "vector_db";
+const DB_NAME = "wiral";
 const COLLECTION_NAME = "embeddings";
-const INDEX_NAME = "vector_index";
 
 let client;
 let vectorStore;
@@ -23,34 +23,33 @@ async function initializeMongoClient() {
         await client.connect();
         console.log('Connected to local MongoDB');
 
-        // Create vector search index if it doesn't exist
-        await createVectorIndex();
+        // Create indexes for better performance
+        await createIndexes();
     }
     return client;
 }
 
-async function createVectorIndex() {
+async function createIndexes() {
     try {
         const db = client.db(DB_NAME);
         const collection = db.collection(COLLECTION_NAME);
 
-        // Check if index already exists
-        const indexes = await collection.listIndexes().toArray();
-        const vectorIndexExists = indexes.some(index => index.name === INDEX_NAME);
+        // Create compound index for metadata filtering
+        await collection.createIndex(
+            {
+                "metadata.account_id": 1,
+                "metadata.document_id": 1,
+                "createdAt": -1
+            },
+            {
+                name: "metadata_compound_index",
+                background: true
+            }
+        );
 
-        if (!vectorIndexExists) {
-            // Create vector search index for local MongoDB
-            // Note: For local MongoDB, you might need to use regular indexes
-            // Vector search indexes are typically for MongoDB Atlas
-            await collection.createIndex(
-                { "metadata.account_id": 1, "metadata.document_id": 1 },
-                { name: "metadata_index" }
-            );
-            console.log('Created metadata index for local MongoDB');
-        }
+        console.log('Created compound index for metadata');
     } catch (error) {
-        console.warn('Could not create vector index:', error.message);
-        // Continue without vector index for local setup
+        console.warn('Could not create indexes:', error.message);
     }
 }
 
@@ -61,17 +60,17 @@ async function loadVectorStore() {
         const db = client.db(DB_NAME);
         const collection = db.collection(COLLECTION_NAME);
 
-        // For local MongoDB, we'll create a custom vector store implementation
         vectorStore = new LocalMongoVectorStore(collection, embeddings);
 
         console.log('Local MongoDB vector store loaded successfully');
+        return vectorStore;
     } catch (error) {
         console.error('Error loading vector store:', error);
         throw error;
     }
 }
 
-// Custom LocalMongoVectorStore class for local MongoDB
+// Fixed LocalMongoVectorStore class
 class LocalMongoVectorStore {
     constructor(collection, embeddings) {
         this.collection = collection;
@@ -79,60 +78,118 @@ class LocalMongoVectorStore {
     }
 
     async addDocuments(documents, options = {}) {
-        const { vectors } = options;
+        try {
+            const { vectors } = options;
 
-        if (!vectors || vectors.length !== documents.length) {
-            throw new Error('Vectors must be provided and match document count');
+            // Generate embeddings if not provided
+            let embeddingVectors = vectors;
+            if (!embeddingVectors) {
+                console.log('Generating embeddings for documents...');
+                const contents = documents.map(doc => doc.pageContent);
+                embeddingVectors = await this.embeddings.embedDocuments(contents);
+            }
+
+            if (embeddingVectors.length !== documents.length) {
+                throw new Error(`Vector count (${embeddingVectors.length}) must match document count (${documents.length})`);
+            }
+
+            const documentsToInsert = documents.map((doc, index) => ({
+                pageContent: doc.pageContent,
+                metadata: {
+                    ...doc.metadata,
+                    // Ensure account_id is a number for consistent querying
+                    account_id: typeof doc.metadata.account_id === 'string'
+                        ? parseInt(doc.metadata.account_id)
+                        : doc.metadata.account_id
+                },
+                embedding: embeddingVectors[index],
+                createdAt: new Date()
+            }));
+
+            const result = await this.collection.insertMany(documentsToInsert);
+            console.log(`Inserted ${result.insertedCount} documents`);
+
+            return result;
+        } catch (error) {
+            console.error('Error adding documents:', error);
+            throw error;
         }
-
-        const documentsToInsert = documents.map((doc, index) => ({
-            pageContent: doc.pageContent,
-            metadata: doc.metadata,
-            embedding: vectors[index],
-            createdAt: new Date()
-        }));
-
-        await this.collection.insertMany(documentsToInsert);
     }
 
-    async clear() {
-        await this.collection.deleteMany({});
-    }
-
-    async save() {
-        // No-op for MongoDB as data is already persisted
-        return Promise.resolve();
+    async clear(filter = {}) {
+        const result = await this.collection.deleteMany(filter);
+        console.log(`Cleared ${result.deletedCount} documents`);
+        return result;
     }
 
     async similaritySearchWithScore(query, k = 10, filter = {}) {
-        // Generate embedding for query
-        const queryVector = await this.embeddings.embedQuery(query);
+        try {
+            // Generate embedding for query
+            console.log('Generating query embedding...');
+            const queryVector = await this.embeddings.embedQuery(query);
 
-        // For local MongoDB without vector search, we'll use metadata filtering
-        // and then compute similarity in memory (not optimal for large datasets)
-        const pipeline = [
-            { $match: filter },
-            { $limit: 1000 } // Limit to prevent memory issues
-        ];
+            // Build MongoDB aggregation pipeline
+            const pipeline = [];
 
-        const documents = await this.collection.aggregate(pipeline).toArray();
+            // Add match stage if filter is provided
+            if (Object.keys(filter).length > 0) {
+                // Convert account_id to number if it's a string
+                const normalizedFilter = { ...filter };
+                if (normalizedFilter.account_id && typeof normalizedFilter.account_id === 'string') {
+                    normalizedFilter.account_id = parseInt(normalizedFilter.account_id);
+                }
 
-        // Compute cosine similarity in memory
-        const results = documents
-            .map(doc => {
-                const similarity = this.cosineSimilarity(queryVector, doc.embedding);
-                return {
-                    document: {
-                        pageContent: doc.pageContent,
-                        metadata: doc.metadata
-                    },
-                    score: similarity
-                };
-            })
-            .sort((a, b) => b.score - a.score)
-            .slice(0, k);
+                // Build metadata filter
+                const matchStage = {};
+                Object.keys(normalizedFilter).forEach(key => {
+                    matchStage[`metadata.${key}`] = normalizedFilter[key];
+                });
 
-        return results;
+                pipeline.push({ $match: matchStage });
+            }
+
+            // Limit documents to process (for performance)
+            pipeline.push({ $limit: Math.max(k * 10, 1000) });
+
+            console.log('Executing MongoDB query with pipeline:', JSON.stringify(pipeline, null, 2));
+
+            const documents = await this.collection.aggregate(pipeline).toArray();
+            console.log(`Found ${documents.length} documents to process`);
+
+            if (documents.length === 0) {
+                console.log('No documents found matching filter');
+                return [];
+            }
+
+            // Compute cosine similarity for each document
+            const results = documents
+                .map(doc => {
+                    if (!doc.embedding || !Array.isArray(doc.embedding)) {
+                        console.warn('Document missing valid embedding:', doc._id);
+                        return null;
+                    }
+
+                    const similarity = this.cosineSimilarity(queryVector, doc.embedding);
+                    return {
+                        document: {
+                            pageContent: doc.pageContent,
+                            metadata: doc.metadata
+                        },
+                        score: similarity
+                    };
+                })
+                .filter(result => result !== null) // Remove null results
+                .sort((a, b) => b.score - a.score) // Sort by similarity descending
+                .slice(0, k); // Take top k results
+
+            console.log(`Returning ${results.length} results with scores:`,
+                results.slice(0, 3).map(r => r.score));
+
+            return results;
+        } catch (error) {
+            console.error('Error in similarity search:', error);
+            throw error;
+        }
     }
 
     async similaritySearch(query, k = 10, filter = {}) {
@@ -140,9 +197,17 @@ class LocalMongoVectorStore {
         return results.map(result => result.document);
     }
 
-    // Cosine similarity calculation
+    // Improved cosine similarity calculation with error handling
     cosineSimilarity(vecA, vecB) {
-        if (vecA.length !== vecB.length) return 0;
+        if (!Array.isArray(vecA) || !Array.isArray(vecB)) {
+            console.warn('Invalid vectors for similarity calculation');
+            return 0;
+        }
+
+        if (vecA.length !== vecB.length) {
+            console.warn(`Vector length mismatch: ${vecA.length} vs ${vecB.length}`);
+            return 0;
+        }
 
         let dotProduct = 0;
         let normA = 0;
@@ -154,14 +219,46 @@ class LocalMongoVectorStore {
             normB += vecB[i] * vecB[i];
         }
 
-        if (normA === 0 || normB === 0) return 0;
+        if (normA === 0 || normB === 0) {
+            console.warn('Zero norm vector detected');
+            return 0;
+        }
 
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+        const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+        return Math.max(0, Math.min(1, similarity)); // Clamp between 0 and 1
     }
 
     async deleteDocumentsByFilter(filter) {
-        const result = await this.collection.deleteMany(filter);
+        // Convert account_id to number if it's a string
+        const normalizedFilter = { ...filter };
+        if (normalizedFilter.account_id && typeof normalizedFilter.account_id === 'string') {
+            normalizedFilter.account_id = parseInt(normalizedFilter.account_id);
+        }
+
+        // Build metadata filter
+        const matchStage = {};
+        Object.keys(normalizedFilter).forEach(key => {
+            matchStage[`metadata.${key}`] = normalizedFilter[key];
+        });
+
+        const result = await this.collection.deleteMany(matchStage);
+        console.log(`Deleted ${result.deletedCount} documents`);
         return result.deletedCount;
+    }
+
+    // Add method to get document count
+    async getDocumentCount(filter = {}) {
+        const normalizedFilter = { ...filter };
+        if (normalizedFilter.account_id && typeof normalizedFilter.account_id === 'string') {
+            normalizedFilter.account_id = parseInt(normalizedFilter.account_id);
+        }
+
+        const matchStage = {};
+        Object.keys(normalizedFilter).forEach(key => {
+            matchStage[`metadata.${key}`] = normalizedFilter[key];
+        });
+
+        return await this.collection.countDocuments(matchStage);
     }
 }
 
@@ -178,41 +275,39 @@ async function getVectorStore() {
 
 // Cleanup function
 async function closeConnection() {
-    if (mongoClient) {
-        await mongoClient.close();
-        mongoClient = null;
+    if (client) {
+        await client.close();
+        client = null;
         vectorStore = null;
         logger.info("MongoDB connection closed");
     }
 }
 
-// RAG Functions for compatibility
+// Fixed RAG Functions
 async function insertEmbeddings(params) {
     const { account_id, chunks, vectors, sourceTitle, sourceUri, documentId } = params;
-    
+
     try {
         logger.info(`Inserting ${chunks.length} embeddings for account ${account_id}`);
-        
-        if (!vectorStore) {
-            throw new Error("Vector store not initialized");
-        }
 
-        // Add documents to vector store
-        const documents = chunks.map(chunk => ({
+        const store = await getVectorStore();
+
+        // Create documents with proper structure
+        const documents = chunks.map((chunk, index) => ({
             pageContent: chunk.content,
             metadata: {
                 account_id: parseInt(account_id),
                 source_title: sourceTitle,
                 source_uri: sourceUri,
                 document_id: documentId,
-                chunk_index: chunk.index || 0
+                chunk_index: chunk.index !== undefined ? chunk.index : index
             }
         }));
 
-        // Pass vectors to addDocuments method
-        await vectorStore.addDocuments(documents, { vectors });
+        // Add documents (will generate embeddings if vectors not provided)
+        await store.addDocuments(documents, { vectors });
+
         logger.info(`Successfully inserted ${chunks.length} embeddings`);
-        
         return { success: true, inserted: chunks.length };
     } catch (error) {
         logger.error("Error inserting embeddings:", error);
@@ -222,25 +317,37 @@ async function insertEmbeddings(params) {
 
 async function retrieveKBChunks(params) {
     const { account_id, query, limit = 10 } = params;
-    
+
     try {
-        if (!vectorStore) {
-            throw new Error("Vector store not initialized");
+        logger.info(`Retrieving chunks for account ${account_id} with query: "${query.substring(0, 50)}..."`);
+
+        const store = await getVectorStore();
+
+        // Check if we have any documents for this account
+        const docCount = await store.getDocumentCount({ account_id: parseInt(account_id) });
+        console.log(`Found ${docCount} documents for account ${account_id}`);
+
+        if (docCount === 0) {
+            logger.warn(`No documents found for account ${account_id}`);
+            return [];
         }
 
         // Search with filter for account_id
-        const results = await vectorStore.similaritySearchWithScore(query, limit, {
+        const results = await store.similaritySearchWithScore(query, limit, {
             account_id: parseInt(account_id)
         });
 
-        return results.map(([doc, score]) => ({
-            content: doc.pageContent,
-            document_id: doc.metadata.document_id,
-            source_title: doc.metadata.source_title,
-            source_uri: doc.metadata.source_uri,
-            score: score,
-            account_id: doc.metadata.account_id,
-            chunk_index: doc.metadata.chunk_index
+        logger.info(`Retrieved ${results.length} chunks for account ${account_id}`);
+
+        // Return in expected format
+        return results.map(result => ({
+            content: result.document.pageContent,
+            document_id: result.document.metadata.document_id,
+            source_title: result.document.metadata.source_title,
+            source_uri: result.document.metadata.source_uri,
+            score: result.score,
+            account_id: result.document.metadata.account_id,
+            chunk_index: result.document.metadata.chunk_index || 0
         }));
     } catch (error) {
         logger.error("Error retrieving KB chunks:", error);
@@ -248,8 +355,39 @@ async function retrieveKBChunks(params) {
     }
 }
 
+// Test function to verify setup
+async function testVectorStore() {
+    try {
+        const store = await getVectorStore();
+
+        // Insert test document
+        await store.addDocuments([{
+            pageContent: "This is a test document about artificial intelligence and machine learning.",
+            metadata: {
+                account_id: 1,
+                document_id: "test-doc-1",
+                source_title: "Test Document",
+                source_uri: "test://doc"
+            }
+        }]);
+
+        // Search for it
+        const results = await store.similaritySearchWithScore("artificial intelligence", 5, {
+            account_id: 1
+        });
+
+        console.log('Test results:', results);
+        return results.length > 0;
+    } catch (error) {
+        console.error('Test failed:', error);
+        return false;
+    }
+}
+
 // Initialize on module load
-await loadVectorStore();
+loadVectorStore().catch(error => {
+    console.error('Failed to initialize vector store:', error);
+});
 
 export {
     vectorStore,
@@ -259,6 +397,7 @@ export {
     closeConnection,
     insertEmbeddings,
     retrieveKBChunks,
+    testVectorStore,
     MONGODB_URI,
     DB_NAME,
     COLLECTION_NAME

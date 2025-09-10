@@ -1,4 +1,4 @@
-import { DataTypes } from '@sequelize/core';
+import { DataTypes } from 'sequelize';
 import sequelize from '../config/postgressConnect.js';
 
 const CustomAttributeDefinition = sequelize.define(
