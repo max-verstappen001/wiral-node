@@ -72,6 +72,12 @@ class AttributeExtractor {
                 return detectionResult;
             }
             
+            // Check if this is clearly a question or conversational statement
+            if (this.isConversationalStatement(lowerMessage)) {
+                this.logger.info(`Ignoring conversational statement: "${lowerMessage}"`);
+                return detectionResult;
+            }
+            
             // Only consider if message contains meaningful content indicators
             const hasNumbers = /\d/.test(message);
             const hasLetters = /[a-zA-Z]{3,}/.test(message); // At least 3 consecutive letters
@@ -85,8 +91,8 @@ class AttributeExtractor {
             if (hasLetters && hasContentIndicators) {
                 // Check against any attribute that exists and could match this value
                 const potentialMatch = this.findBestAttributeForValue(lowerMessage.trim(), requiredAttributes, currentAttributes);
-                if (potentialMatch) {
-                    this.logger.info(`Potential value response for ${potentialMatch.attribute_key}: "${lowerMessage}"`);
+                if (potentialMatch && potentialMatch.score > 5) { // Add minimum score threshold
+                    this.logger.info(`Potential value response for ${potentialMatch.attribute_key}: "${lowerMessage}" (score: ${potentialMatch.score})`);
 
                     detectionResult.hasChangeIntent = true;
                     detectionResult.changeType = 'value_response';
@@ -269,7 +275,11 @@ class AttributeExtractor {
         if (attributeScores.length > 0 && attributeScores[0].score >= 3) {
             const bestMatch = attributeScores[0];
             this.logger.info(`Best match for value "${value}": ${bestMatch.attribute.attribute_key} (score: ${bestMatch.score}, reasons: ${bestMatch.reasons.join(', ')})`);
-            return bestMatch.attribute;
+            return {
+                attribute_key: bestMatch.attribute.attribute_key,
+                score: bestMatch.score,
+                reasons: bestMatch.reasons
+            };
         }
 
         this.logger.info(`No suitable attribute found for value: "${value}"`);
@@ -446,6 +456,40 @@ class AttributeExtractor {
     containsQuestionWords(message) {
         const questionWords = ['what', 'how', 'when', 'where', 'why', 'which', 'who', 'can', 'could', 'would', 'should'];
         return questionWords.some(word => message.includes(word));
+    }
+
+    /**
+     * Check if message is a conversational statement that shouldn't be treated as attribute value
+     */
+    isConversationalStatement(message) {
+        const lowerMessage = message.toLowerCase().trim();
+        
+        // Question patterns
+        const questionPatterns = [
+            /^(do you|can you|are you|have you|will you|would you|could you)/,
+            /^(what|how|when|where|why|which|who)/,
+            /\?$/,
+            /(know about|tell me about|information about|details about)/,
+            /(help|assist|support)/
+        ];
+        
+        // Greeting patterns
+        const greetingPatterns = [
+            /^(hi|hello|hey|good morning|good afternoon|good evening)/,
+            /(nice to meet|pleasure to meet)/
+        ];
+        
+        // General conversational patterns
+        const conversationalPatterns = [
+            /(i want to know|i would like to know|tell me)/,
+            /(about|regarding|concerning)/,
+            /(please|could you please|can you please)/,
+            /^(yes|no|ok|okay|sure|alright),?\s/
+        ];
+        
+        return questionPatterns.some(pattern => pattern.test(lowerMessage)) ||
+               greetingPatterns.some(pattern => pattern.test(lowerMessage)) ||
+               conversationalPatterns.some(pattern => pattern.test(lowerMessage));
     }
 
     /**
