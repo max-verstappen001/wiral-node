@@ -118,32 +118,6 @@ async function sendChatwootReply(accountId, conversationId, content, CHATWOOT_BO
     );
 }
 
-// ---------- Contact and Attribute Management ----------
-async function getContactAttributes(accountId, inbox_id, contactId, api_access_token) {
-    try {
-        logger.info(`Fetching contact attributes for contact ${contactId} in inbox ${inbox_id}`);
-        const res = await axios.get(
-            // https://app.chatwoot.com/public/api/v1/inboxes/{inbox_identifier}/contacts/{contact_identifier}
-
-            `${CHATWOOT_URL}/api/v1/inboxes/${inbox_id}/contacts/${contactId}`,
-            {
-                headers: { "Content-Type": "application/json", api_access_token: api_access_token },
-                timeout: 10000,
-            }
-        );
-        const contact = res.data?.payload || null;
-        if (!contact) {
-            logger.error(`No contact data found for contact ${contactId}`);
-            return {};
-        }
-        const attributes = contact.custom_attributes || {};
-        logger.info(`Fetched contact ${contactId} attributes:`, attributes);
-        return attributes;
-    } catch (error) {
-        logger.error(`Error fetching contact attributes for contact ${contactId}:`, error.message);
-        return {};
-    }
-}
 
 async function updateContactAttributes(accountId, contactId, attributes, api_access_token) {
     try {
@@ -689,9 +663,12 @@ app.post("/chatwoot-webhook", async (req, res) => {
         let currentContactAttributes = extractContactAttributesFromWebhook(req.body);
         if (currentContactAttributes && typeof currentContactAttributes === 'object') {
             logger.info(`Current contact attributes (from webhook):`, currentContactAttributes);
-        } else {
-            currentContactAttributes = await getContactAttributes(account_id, req.body?.inbox?.id, contact_id, api_access_token);
-            logger.info(`Current contact attributes (from API):`, currentContactAttributes);
+        }
+
+        // Ensure currentContactAttributes is always an object
+        if (!currentContactAttributes || typeof currentContactAttributes !== 'object') {
+            currentContactAttributes = {};
+            logger.info(`Initialized empty contact attributes object`);
         }
 
         // Get conversation history for smart timing
@@ -745,34 +722,42 @@ app.post("/chatwoot-webhook", async (req, res) => {
         
         let updatedAttributes = { ...currentContactAttributes };
         let attributesUpdated = false;
+        
+        // Get missing attributes first to focus extraction
+        const missingAttributes = checkMissingAttributes(requiredAttributes, updatedAttributes);
+        logger.info(`Missing attributes before extraction: ${missingAttributes.map(a => a.attribute_key).join(', ')}`);
+        
         const extractedFromMessage = await attributeExtractor.extractAllAttributesFromMessage(content, requiredAttributes);
+        logger.info(`Extracted attributes from message:`, extractedFromMessage);
 
         for (const [key, value] of Object.entries(extractedFromMessage)) {
-            if (!updatedAttributes[key] && value) {
+            if (value && value.trim() !== '') {
+                // Update the attribute regardless of whether it exists or not
+                const oldValue = updatedAttributes[key];
                 updatedAttributes[key] = value;
                 attributesUpdated = true;
-                logger.info(`Extracted new attribute ${key}: ${value}`);
+                logger.info(`${oldValue ? 'Updated' : 'Extracted new'} attribute ${key}: "${oldValue || 'none'}" -> "${value}"`);
             }
         }
 
         // Update contact attributes if any new ones were extracted
         if (attributesUpdated) {
-            logger.info(`Updating contact with new extracted attributes: ${JSON.stringify(updatedAttributes)}`);
+            logger.info(`Updating contact with new extracted attributes:`, updatedAttributes);
             await updateContactAttributes(account_id, contact_id, updatedAttributes, api_access_token);
         }
 
         // STEP 3: Smart attribute collection timing
         logger.info(`=== CHECKING ATTRIBUTE COLLECTION TIMING ===`);
         
-        const missingAttributes = checkMissingAttributes(requiredAttributes, updatedAttributes);
-        const collectionDecision = attributeExtractor.shouldCollectAttributes(lastMessages, missingAttributes);
+        const currentMissingAttributes = checkMissingAttributes(requiredAttributes, updatedAttributes);
+        const collectionDecision = attributeExtractor.shouldCollectAttributes(lastMessages, currentMissingAttributes);
         
         logger.info(`Collection decision:`, collectionDecision);
         
         let finalMissingAttributes = [];
         
         if (collectionDecision.shouldCollect) {
-            finalMissingAttributes = collectionDecision.attributesToCollect || missingAttributes;
+            finalMissingAttributes = collectionDecision.attributesToCollect || currentMissingAttributes;
             logger.info(`Will collect ${finalMissingAttributes.length} attributes based on timing decision`);
         } else {
             logger.info(`Skipping attribute collection: ${collectionDecision.reason}`);
@@ -788,7 +773,7 @@ app.post("/chatwoot-webhook", async (req, res) => {
                 user_message: content,
                 conversation_id: conversationId,
                 account_name: accountName,
-                missing_attributes_count: missingAttributes.length,
+                missing_attributes_count: currentMissingAttributes.length,
                 collecting_attributes_count: finalMissingAttributes.length,
                 current_attributes: updatedAttributes,
                 had_attribute_changes: changeResult.hasChanges,
@@ -844,7 +829,7 @@ app.post("/chatwoot-webhook", async (req, res) => {
                     conversation_id: conversationId,
                     contact_id,
                     attributes_collected: Object.keys(updatedAttributes).length,
-                    attributes_missing: missingAttributes.length,
+                    attributes_missing: currentMissingAttributes.length,
                     attributes_collecting: finalMissingAttributes.length,
                     attribute_changes: changeResult.hasChanges,
                     collection_timing: collectionDecision.reason,
@@ -856,7 +841,7 @@ app.post("/chatwoot-webhook", async (req, res) => {
         logger.info(`[DEBUG] AI reply generated: "${aiReply}"`);
 
         // Check if all attributes are collected
-        const allAttributesCollected = missingAttributes.length === 0;
+        const allAttributesCollected = currentMissingAttributes.length === 0;
         if (allAttributesCollected && Object.keys(updatedAttributes).length > 0) {
             logger.info(`All attributes collected for contact ${contact_id}.`);
             // Here you can call your external API if needed
