@@ -649,18 +649,16 @@ app.use("/api/azure-rag", azureRagRoutes);
 app.use("/api/multi-rag", multiFileRagRoutes);
 
 // ---------- Enhanced Webhook with Attribute Collection ----------
+// ---------- Enhanced Webhook with Attribute Collection ----------
 app.post("/chatwoot-webhook", async (req, res) => {
-
-
     const { content, conversation, message_type } = req.body;
     const account_id = req.body.account?.id;
     const contact_id = req.body.conversation?.contact_inbox?.contact_id;
 
-
-
     // Loop prevention - same as before
     const loopPreventionResult = shouldIgnoreMessage({ req, logger });
     if (loopPreventionResult) return res.sendStatus(200);
+    
     logger.info(`Webhook received: ${JSON.stringify(req.body, null, 2)}`);
     logger.info(`Account ID: ${account_id}, Contact ID: ${contact_id}`);
 
@@ -696,7 +694,13 @@ app.post("/chatwoot-webhook", async (req, res) => {
             logger.info(`Current contact attributes (from API):`, currentContactAttributes);
         }
 
+        // Get conversation history for smart timing
+        const lastMessages = await fetchLastMessages(account_id, conversationId, 20, api_access_token);
+        logger.info(`Fetched ${lastMessages.length} recent messages for context.`);
+
         // STEP 1: Check for attribute change intent FIRST
+        logger.info(`=== CHECKING FOR ATTRIBUTE CHANGES ===`);
+        
         const changeResult = await attributeExtractor.processAttributeChanges(
             content,
             currentContactAttributes,
@@ -706,27 +710,224 @@ app.post("/chatwoot-webhook", async (req, res) => {
             contact_id
         );
 
-        let updatedAttributes = { ...currentContactAttributes };
-        let aiResponseSuffix = '';
-        let shouldProceedWithNormalFlow = true;
+        logger.info(`Change result:`, changeResult);
 
+        // Handle attribute change scenarios
         if (changeResult.hasChanges) {
             if (changeResult.success) {
                 // Attribute was successfully changed
-                updatedAttributes = changeResult.updatedAttributes;
-                aiResponseSuffix = ` ${changeResult.confirmationMessage}`;
                 logger.info(`Attribute successfully changed:`, changeResult.changeDetails);
-                shouldProceedWithNormalFlow = true;
+                const confirmationMessage = changeResult.confirmationMessage;
+                
+                await sendChatwootReply(account_id, conversationId, confirmationMessage, CHATWOOT_BOT_TOKEN);
+                return res.sendStatus(200);
+                
+            } else if (changeResult.needsValue) {
+                // Need the user to provide the new value
+                logger.info(`Attribute change request detected, asking for new value`);
+                await sendChatwootReply(account_id, conversationId, changeResult.clarificationQuestion, CHATWOOT_BOT_TOKEN);
+                return res.sendStatus(200);
+                
             } else if (changeResult.needsConfirmation) {
+                // Need confirmation from user
                 logger.info(`Attribute change needs confirmation`);
                 await sendChatwootReply(account_id, conversationId, changeResult.clarificationQuestion, CHATWOOT_BOT_TOKEN);
                 return res.sendStatus(200);
+                
             } else {
+                // Change failed - continue with normal flow but note the error
                 logger.error(`Attribute change failed:`, changeResult.error);
-                aiResponseSuffix = ` I had trouble updating that information. Could you please try again?`;
             }
         }
-        // (rest of the webhook handler logic goes here)
+
+        // STEP 2: Extract new attributes from message (if any)
+        logger.info(`=== EXTRACTING NEW ATTRIBUTES ===`);
+        
+        let updatedAttributes = { ...currentContactAttributes };
+        let attributesUpdated = false;
+        const extractedFromMessage = await attributeExtractor.extractAllAttributesFromMessage(content, requiredAttributes);
+
+        for (const [key, value] of Object.entries(extractedFromMessage)) {
+            if (!updatedAttributes[key] && value) {
+                updatedAttributes[key] = value;
+                attributesUpdated = true;
+                logger.info(`Extracted new attribute ${key}: ${value}`);
+            }
+        }
+
+        // Update contact attributes if any new ones were extracted
+        if (attributesUpdated) {
+            logger.info(`Updating contact with new extracted attributes: ${JSON.stringify(updatedAttributes)}`);
+            await updateContactAttributes(account_id, contact_id, updatedAttributes, api_access_token);
+        }
+
+        // STEP 3: Smart attribute collection timing
+        logger.info(`=== CHECKING ATTRIBUTE COLLECTION TIMING ===`);
+        
+        const missingAttributes = checkMissingAttributes(requiredAttributes, updatedAttributes);
+        const collectionDecision = attributeExtractor.shouldCollectAttributes(lastMessages, missingAttributes);
+        
+        logger.info(`Collection decision:`, collectionDecision);
+        
+        let finalMissingAttributes = [];
+        
+        if (collectionDecision.shouldCollect) {
+            finalMissingAttributes = collectionDecision.attributesToCollect || missingAttributes;
+            logger.info(`Will collect ${finalMissingAttributes.length} attributes based on timing decision`);
+        } else {
+            logger.info(`Skipping attribute collection: ${collectionDecision.reason}`);
+            // Don't ask for attributes, but continue with normal conversation
+        }
+
+        // Create Langfuse trace
+        const trace = await sharedLangfuseService.createTrace(
+            account_id.toString(),
+            `conversation_${conversationId}`,
+            {
+                account_id: account_id,
+                user_message: content,
+                conversation_id: conversationId,
+                account_name: accountName,
+                missing_attributes_count: missingAttributes.length,
+                collecting_attributes_count: finalMissingAttributes.length,
+                current_attributes: updatedAttributes,
+                had_attribute_changes: changeResult.hasChanges,
+                collection_decision: collectionDecision.reason,
+                conversation_turns: collectionDecision.turnCount
+            },
+            {
+                conversation_id: conversationId,
+                contact_id: contact_id,
+                message_type: message_type,
+                channel: req.body?.inbox?.name || "unknown",
+                attributes_collection_phase: finalMissingAttributes.length > 0,
+                attribute_change_detected: changeResult.hasChanges,
+                smart_timing_applied: true
+            }
+        );
+
+        let tokenUsageFromResponse = null;
+
+        // Generate AI reply with smart attribute handling
+        const aiReply = await chain.invoke(
+            {
+                account_id,
+                account_name: accountName,
+                user_text: content,
+                recent_messages: lastMessages,
+                system_prompt: systemPrompt,
+                contact_attributes: updatedAttributes,
+                missing_attributes: finalMissingAttributes, // Only pass attributes we want to collect
+                collection_decision: collectionDecision.reason
+            },
+            {
+                callbacks: [
+                    {
+                        handleLLMEnd: async (output) => {
+                            tokenUsageFromResponse = output?.llmOutput?.tokenUsage || output?.llmOutput?.usage;
+                            if (tokenUsageFromResponse) {
+                                logger.info(`[TOKEN] Captured usage - prompt: ${tokenUsageFromResponse.promptTokens}, completion: ${tokenUsageFromResponse.completionTokens}, total: ${tokenUsageFromResponse.totalTokens}`);
+                            }
+                        }
+                    }
+                ],
+                runName: "wiral-rag-reply-with-smart-attributes",
+                tags: [
+                    `account:${account_id}`,
+                    `conversation:${conversationId}`,
+                    `attributes:${finalMissingAttributes.length}`,
+                    `changes:${changeResult.hasChanges ? 'yes' : 'no'}`,
+                    `timing:${collectionDecision.reason}`
+                ],
+                metadata: {
+                    account_id,
+                    conversation_id: conversationId,
+                    contact_id,
+                    attributes_collected: Object.keys(updatedAttributes).length,
+                    attributes_missing: missingAttributes.length,
+                    attributes_collecting: finalMissingAttributes.length,
+                    attribute_changes: changeResult.hasChanges,
+                    collection_timing: collectionDecision.reason,
+                    conversation_turns: collectionDecision.turnCount
+                },
+            }
+        );
+
+        logger.info(`[DEBUG] AI reply generated: "${aiReply}"`);
+
+        // Check if all attributes are collected
+        const allAttributesCollected = missingAttributes.length === 0;
+        if (allAttributesCollected && Object.keys(updatedAttributes).length > 0) {
+            logger.info(`All attributes collected for contact ${contact_id}.`);
+            // Here you can call your external API if needed
+            // await callExternalAPI(account_id, { contact_id, conversation_id: conversationId, attributes: updatedAttributes }, updatedAttributes);
+        }
+
+        // Calculate cost and update trace
+        const finalTokenUsage = {
+            promptTokens: tokenUsageFromResponse?.promptTokens || 0,
+            completionTokens: tokenUsageFromResponse?.completionTokens || 0,
+            totalTokens: tokenUsageFromResponse?.totalTokens || 0
+        };
+
+        const modelPricing = PRICING[MODEL] || { input: 0, output: 0 };
+        const inputTokens = finalTokenUsage.promptTokens;
+        const outputTokens = finalTokenUsage.completionTokens;
+        const costUsd = (inputTokens / 1000) * modelPricing.input + (outputTokens / 1000) * modelPricing.output;
+
+        // Update trace
+        if (trace) {
+            await sharedLangfuseService.updateTrace(trace,
+                {
+                    ai_response: aiReply,
+                    success: true,
+                    attributes_collected: allAttributesCollected,
+                    final_attributes: updatedAttributes,
+                    attribute_changes_processed: changeResult.hasChanges,
+                    smart_timing_decision: collectionDecision.reason
+                },
+                {
+                    model: MODEL,
+                    input_tokens: inputTokens,
+                    output_tokens: outputTokens,
+                    total_tokens: finalTokenUsage.totalTokens,
+                    cost_usd: costUsd,
+                    processing_time: Date.now()
+                }
+            );
+
+            // Log usage
+            await sharedLangfuseService.logUsage(account_id.toString(), {
+                model: MODEL,
+                input: content,
+                output: aiReply,
+                endpoint: "chatwoot_webhook_with_smart_attributes",
+                tokens_used: finalTokenUsage.totalTokens,
+                input_tokens: inputTokens,
+                output_tokens: outputTokens,
+                cost: costUsd,
+                processing_time: Date.now(),
+                success: true
+            });
+
+            await sharedLangfuseService.logCost(account_id.toString(), {
+                transaction_type: "ai_response_with_smart_attribute_management",
+                amount: costUsd,
+                model: MODEL,
+                tokens_used: finalTokenUsage.totalTokens,
+                conversation_id: conversationId
+            });
+        }
+
+        logger.info(
+            `AI reply with smart attributes (tokens in/out/total ${inputTokens}/${outputTokens}/${finalTokenUsage.totalTokens}) ~ $${costUsd.toFixed(6)}`
+        );
+
+        // Send reply to Chatwoot
+        await sendChatwootReply(account_id, conversationId, aiReply, CHATWOOT_BOT_TOKEN);
+        logger.info(`Reply sent back to Chatwoot conversation ${conversationId}`);
+
+        res.sendStatus(200);
     } catch (err) {
         if (err.response) {
             logger.error(`API Error (status: ${err.response.status}): ${JSON.stringify(err.response.data)}`);
@@ -738,3 +939,113 @@ app.post("/chatwoot-webhook", async (req, res) => {
         res.sendStatus(500);
     }
 });
+
+// Health check endpoint
+app.get("/health", async (req, res) => {
+    const langfuseHealth = await sharedLangfuseService.healthCheck();
+
+    res.json({
+        status: "OK",
+        timestamp: new Date().toISOString(),
+        hostname: os.hostname(),
+        pid: process.pid,
+        memoryUsage: process.memoryUsage(),
+        services: {
+            rag: "enabled",
+            chatwoot: "enabled",
+            langfuse: langfuseHealth.status,
+            langfuse_message: langfuseHealth.message,
+            attribute_collection: "enabled",
+            smart_timing: "enabled"
+        }
+    });
+});
+
+// Analytics endpoint for account usage
+app.get("/api/analytics/:accountId", async (req, res) => {
+    try {
+        const { accountId } = req.params;
+        const { days = 30 } = req.query;
+
+        const analytics = await sharedLangfuseService.getAccountAnalytics(accountId, parseInt(days));
+
+        res.json({
+            success: true,
+            account_id: accountId,
+            period_days: days,
+            analytics: analytics
+        });
+    } catch (error) {
+        logger.error(`Error fetching analytics for account ${req.params.accountId}:`, error.message);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// New endpoint to manually test external API
+app.post("/api/test-external-api", async (req, res) => {
+    try {
+        const { accountId, contactData, attributes } = req.body;
+        // contactData should be contactId (string or number), not an object
+        const contactId = typeof contactData === 'object' && contactData.contact_id ? contactData.contact_id : contactData;
+        const result = await updateContactAttributes(accountId, contactId, attributes, req.body.api_access_token);
+
+        res.json({
+            success: true,
+            result: result
+        });
+    } catch (error) {
+        logger.error(`Error testing external API:`, error.message);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// ---------- Boot ----------
+async function start() {
+    try {
+        console.log("Starting server...");
+
+        // Connect to MongoDB
+        await mongoConnect();
+
+        // Initialize Langfuse service
+        await sharedLangfuseService.initialize();
+
+        app.listen(3009, () => {
+            logger.info("Enhanced AI Bot with RAG service and Smart Attribute Collection running on port 3009");
+            logger.info("Environment check:");
+            logger.info(`- CHATWOOT_URL: ${process.env.CHATWOOT_URL ? "Set" : "Missing"}`);
+            logger.info(`- OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? "Set" : "Missing"}`);
+            logger.info(`- MONGODB_URI: ${process.env.MONGODB_URI ? "Set" : "Missing"}`);
+            logger.info(`- LANGFUSE_ENABLED: ${process.env.LANGFUSE_ENABLED ? "Set" : "Missing"}`);
+            logger.info(`- LANGFUSE_BASE_URL: ${process.env.LANGFUSE_BASE_URL ? "Set" : "Missing"}`);
+            logger.info(`- LANGFUSE_PUBLIC_KEY: ${process.env.LANGFUSE_PUBLIC_KEY ? "Set" : "Missing"}`);
+            logger.info(`- LANGFUSE_SECRET_KEY: ${process.env.LANGFUSE_SECRET_KEY ? "Set" : "Missing"}`);
+            logger.info("MongoDB connection: Enabled");
+            logger.info("Features: RAG, Smart Attribute Collection, Dynamic Client Support, Professional Timing");
+        });
+    } catch (e) {
+        logger.error("Failed to start server: " + e.message);
+        process.exit(1);
+    }
+}
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    logger.info('Received SIGINT, shutting down gracefully...');
+    await sharedLangfuseService.shutdown();
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    logger.info('Received SIGTERM, shutting down gracefully...');
+    await sharedLangfuseService.shutdown();
+    process.exit(0);
+});
+
+start();
