@@ -1,0 +1,326 @@
+{
+  "test_configurations": {
+    "logistics": {
+      "name": "Logistics & Transportation",
+      "description": "Package delivery and logistics services",
+      "attributes": [
+        {
+          "attribute_key": "pickup_location",
+          "attribute_display_name": "Pickup Location",
+          "attribute_description": "The address where goods will be collected",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "delivery_location",
+          "attribute_display_name": "Delivery Location", 
+          "attribute_description": "The destination address for delivery",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "package_classification",
+          "attribute_display_name": "Package Type",
+          "attribute_description": "Classification of goods - one of these 4 values - Electronics, Fragile, Documents, General",
+          "attribute_values": ["Electronics", "Fragile", "Documents", "General"]
+        },
+        {
+          "attribute_key": "delivery_urgency",
+          "attribute_display_name": "Delivery Urgency",
+          "attribute_description": "Priority level - can be Standard, Express, or Urgent",
+          "attribute_values": ["Standard", "Express", "Urgent"]
+        },
+        {
+          "attribute_key": "package_weight",
+          "attribute_display_name": "Package Weight",
+          "attribute_description": "Weight of the package in kg",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "contact_phone",
+          "attribute_display_name": "Contact Phone",
+          "attribute_description": "Phone number for delivery coordination",
+          "attribute_values": []
+        }
+      ],
+      "test_messages": [
+        "I need to send a laptop from 123 Main Street to 456 Oak Avenue. It's urgent and weighs about 2kg.",
+        "Pick up some fragile items from downtown office, deliver to residential area",
+        "Standard delivery of documents from corporate building to law firm",
+        "My phone is 555-0123 for coordination"
+      ]
+    },
+    "healthcare": {
+      "name": "Healthcare Services",
+      "description": "Medical appointments and patient management",
+      "attributes": [
+        {
+          "attribute_key": "patient_name",
+          "attribute_display_name": "Patient Name",
+          "attribute_description": "Full name of the patient",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "appointment_type",
+          "attribute_display_name": "Appointment Type",
+          "attribute_description": "Type of medical appointment - Consultation, Checkup, Emergency, Surgery",
+          "attribute_values": ["Consultation", "Checkup", "Emergency", "Surgery"]
+        },
+        {
+          "attribute_key": "preferred_doctor",
+          "attribute_display_name": "Preferred Doctor",
+          "attribute_description": "Name of preferred healthcare provider",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "insurance_id",
+          "attribute_display_name": "Insurance ID",
+          "attribute_description": "Patient insurance identification number",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "emergency_contact",
+          "attribute_display_name": "Emergency Contact",
+          "attribute_description": "Phone number for emergency contact",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "medical_concern",
+          "attribute_display_name": "Medical Concern",
+          "attribute_description": "Brief description of health issue or reason for visit",
+          "attribute_values": []
+        }
+      ],
+      "test_messages": [
+        "Hi, I'm John Smith and I need an emergency appointment. My insurance ID is HC123456",
+        "Schedule a checkup with Dr. Wilson for Sarah Johnson",
+        "I have chest pain and need urgent consultation",
+        "Emergency contact is 555-0123"
+      ]
+    },
+    "real_estate": {
+      "name": "Real Estate Services",
+      "description": "Property search and real estate transactions",
+      "attributes": [
+        {
+          "attribute_key": "property_type",
+          "attribute_display_name": "Property Type",
+          "attribute_description": "Type of property - House, Apartment, Condo, Townhouse, Commercial",
+          "attribute_values": ["House", "Apartment", "Condo", "Townhouse", "Commercial"]
+        },
+        {
+          "attribute_key": "budget_range",
+          "attribute_display_name": "Budget Range",
+          "attribute_description": "Price range for property search",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "preferred_location",
+          "attribute_display_name": "Preferred Location",
+          "attribute_description": "Desired neighborhood or area",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "bedrooms",
+          "attribute_display_name": "Number of Bedrooms",
+          "attribute_description": "Required number of bedrooms",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "move_in_date",
+          "attribute_display_name": "Move-in Date",
+          "attribute_description": "Preferred move-in timeline",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "property_features",
+          "attribute_display_name": "Property Features",
+          "attribute_description": "Desired features like garage, pool, garden, etc.",
+          "attribute_values": []
+        }
+      ],
+      "test_messages": [
+        "Looking for a 3-bedroom house in downtown area, budget is $300k-500k",
+        "I want an apartment in the suburbs, 2 bedrooms preferred",
+        "Need to move in by next month, prefer a place with garage",
+        "Looking for commercial property with parking"
+      ]
+    },
+    "ecommerce": {
+      "name": "E-Commerce Platform",
+      "description": "Online shopping and order management", 
+      "attributes": [
+        {
+          "attribute_key": "product_category",
+          "attribute_display_name": "Product Category",
+          "attribute_description": "Type of product - Electronics, Clothing, Books, Home, Sports",
+          "attribute_values": ["Electronics", "Clothing", "Books", "Home", "Sports"]
+        },
+        {
+          "attribute_key": "shipping_address",
+          "attribute_display_name": "Shipping Address",
+          "attribute_description": "Delivery address for orders",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "payment_method",
+          "attribute_display_name": "Payment Method",
+          "attribute_description": "Preferred payment option - Credit Card, PayPal, Bank Transfer",
+          "attribute_values": ["Credit Card", "PayPal", "Bank Transfer"]
+        },
+        {
+          "attribute_key": "order_value",
+          "attribute_display_name": "Order Value",
+          "attribute_description": "Total value of the order",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "delivery_preference",
+          "attribute_display_name": "Delivery Preference",
+          "attribute_description": "Delivery timing preference - Standard, Express, Next Day",
+          "attribute_values": ["Standard", "Express", "Next Day"]
+        }
+      ],
+      "test_messages": [
+        "I want to buy electronics worth $500, ship to 789 Pine Street",
+        "Looking for sports equipment, will use PayPal",
+        "Need express delivery to my office address",
+        "Order books for $50, pay with credit card"
+      ]
+    },
+    "financial": {
+      "name": "Financial Services",
+      "description": "Banking, loans, and investment services",
+      "attributes": [
+        {
+          "attribute_key": "service_type",
+          "attribute_display_name": "Service Type",
+          "attribute_description": "Type of financial service - Loan, Investment, Insurance, Banking",
+          "attribute_values": ["Loan", "Investment", "Insurance", "Banking"]
+        },
+        {
+          "attribute_key": "annual_income",
+          "attribute_display_name": "Annual Income",
+          "attribute_description": "Client's yearly income",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "risk_tolerance",
+          "attribute_display_name": "Risk Tolerance",
+          "attribute_description": "Investment risk preference - Conservative, Moderate, Aggressive",
+          "attribute_values": ["Conservative", "Moderate", "Aggressive"]
+        },
+        {
+          "attribute_key": "contact_email",
+          "attribute_display_name": "Contact Email",
+          "attribute_description": "Email address for correspondence",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "loan_amount",
+          "attribute_display_name": "Loan Amount",
+          "attribute_description": "Requested loan amount",
+          "attribute_values": []
+        }
+      ],
+      "test_messages": [
+        "I'm interested in investment services, my income is $75000 annually",
+        "I prefer moderate risk, contact me at john@email.com",
+        "Need a loan of $50000 for home purchase",
+        "Looking for conservative investment options"
+      ]
+    },
+    "education": {
+      "name": "Education Platform",
+      "description": "Online courses and educational services",
+      "attributes": [
+        {
+          "attribute_key": "course_level",
+          "attribute_display_name": "Course Level",
+          "attribute_description": "Academic level - Beginner, Intermediate, Advanced, Expert",
+          "attribute_values": ["Beginner", "Intermediate", "Advanced", "Expert"]
+        },
+        {
+          "attribute_key": "subject_area",
+          "attribute_display_name": "Subject Area", 
+          "attribute_description": "Area of study - Mathematics, Science, Arts, Technology, Business",
+          "attribute_values": ["Mathematics", "Science", "Arts", "Technology", "Business"]
+        },
+        {
+          "attribute_key": "learning_mode",
+          "attribute_display_name": "Learning Mode",
+          "attribute_description": "Preferred learning format - Online, In-Person, Hybrid",
+          "attribute_values": ["Online", "In-Person", "Hybrid"]
+        },
+        {
+          "attribute_key": "student_age",
+          "attribute_display_name": "Student Age",
+          "attribute_description": "Age of the student",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "schedule_preference",
+          "attribute_display_name": "Schedule Preference",
+          "attribute_description": "Preferred class timing - Morning, Afternoon, Evening, Weekend",
+          "attribute_values": ["Morning", "Afternoon", "Evening", "Weekend"]
+        }
+      ],
+      "test_messages": [
+        "I'm 25 years old and want to learn advanced mathematics online",
+        "Looking for beginner technology courses, prefer in-person classes",
+        "Need weekend business courses for working professionals",
+        "Want science courses in the evening"
+      ]
+    },
+    "custom": {
+      "name": "Custom Client Configuration",
+      "description": "Template for creating your own client attributes",
+      "attributes": [
+        {
+          "attribute_key": "example_classification",
+          "attribute_display_name": "Example Classification",
+          "attribute_description": "Example of classification attribute - Type A, Type B, Type C",
+          "attribute_values": ["Type A", "Type B", "Type C"]
+        },
+        {
+          "attribute_key": "example_location",
+          "attribute_display_name": "Example Location",
+          "attribute_description": "Example of location-based attribute",
+          "attribute_values": []
+        },
+        {
+          "attribute_key": "example_contact",
+          "attribute_display_name": "Example Contact",
+          "attribute_description": "Example of contact information attribute",
+          "attribute_values": []
+        }
+      ],
+      "test_messages": [
+        "Add your own test messages here",
+        "Customize this configuration for your client",
+        "Test with different attribute combinations"
+      ]
+    }
+  },
+  "testing_guidelines": {
+    "attribute_design": [
+      "Use descriptive attribute_key names (snake_case)",
+      "Provide clear attribute_display_name for user interaction",
+      "Write detailed attribute_description for AI extraction",
+      "Include attribute_values for classification/enum types",
+      "Keep descriptions specific to improve extraction accuracy"
+    ],
+    "message_testing": [
+      "Test with natural conversational language",
+      "Include multiple attributes in single messages",
+      "Test edge cases and ambiguous inputs",
+      "Verify extraction with different sentence structures",
+      "Test both explicit and implicit attribute mentions"
+    ],
+    "validation_tips": [
+      "Check that extracted values match expected format",
+      "Verify classification values match predefined options",
+      "Test with missing, partial, and complete information",
+      "Validate that system handles unknown attributes gracefully",
+      "Ensure change detection works for existing attributes"
+    ]
+  }
+}
