@@ -1,11 +1,11 @@
 import logger from "../utils/logger.js";
-import AttributeExtractor from "../utils/attributeExtraction.js";
+import AIAttributeExtractor from "./aiAttributeExtractor.js";
 import { Client } from "../model/clientModel.js";
 import ChatwootService from "./chatwootService.js";
 
 class AttributeService {
     constructor() {
-        this.attributeExtractor = new AttributeExtractor(logger);
+        this.aiAttributeExtractor = new AIAttributeExtractor();
         this.chatwootService = new ChatwootService();
     }
 
@@ -36,16 +36,56 @@ class AttributeService {
 
     async processAttributeChanges(content, currentContactAttributes, requiredAttributes, apiAccessToken, accountId, contactId) {
         try {
-            return await this.attributeExtractor.processAttributeChanges(
+            const changeResult = await this.aiAttributeExtractor.detectAttributeChangeIntent(
                 content,
                 currentContactAttributes,
-                requiredAttributes,
-                apiAccessToken,
-                accountId,
-                contactId
+                requiredAttributes
             );
+
+            if (changeResult.hasChangeIntent) {
+                logger.info(`AI detected change intent:`, changeResult);
+                
+                if (changeResult.attributeKey && changeResult.newValue) {
+                    // We have both attribute and value, proceed with update
+                    const updateData = { [changeResult.attributeKey]: changeResult.newValue };
+                    await this.chatwootService.updateContactAttributes(accountId, contactId, {
+                        ...currentContactAttributes,
+                        ...updateData
+                    }, apiAccessToken);
+
+                    return {
+                        hasChanges: true,
+                        success: true,
+                        changeDetails: updateData,
+                        confirmationMessage: `I've updated your ${changeResult.attributeKey} to "${changeResult.newValue}". How else can I help you?`
+                    };
+                } else if (changeResult.attributeKey && !changeResult.newValue) {
+                    // We know what to change but need the new value
+                    const attrDef = requiredAttributes.find(attr => attr.attribute_key === changeResult.attributeKey);
+                    const displayName = attrDef?.attribute_display_name || changeResult.attributeKey;
+                    
+                    return {
+                        hasChanges: true,
+                        success: false,
+                        needsValue: true,
+                        clarificationQuestion: `What would you like to change your ${displayName} to?`
+                    };
+                } else if (changeResult.needsConfirmation) {
+                    return {
+                        hasChanges: true,
+                        success: false,
+                        needsConfirmation: true,
+                        clarificationQuestion: changeResult.reasoning || "Could you please clarify what you'd like to change?"
+                    };
+                }
+            }
+
+            return {
+                hasChanges: false,
+                success: false
+            };
         } catch (error) {
-            logger.error(`Error processing attribute changes:`, error.message);
+            logger.error(`Error processing AI attribute changes:`, error.message);
             return {
                 hasChanges: false,
                 success: false,
@@ -54,23 +94,27 @@ class AttributeService {
         }
     }
 
-    async extractAttributesFromMessage(content, requiredAttributes) {
+    async extractAttributesFromMessage(content, requiredAttributes, conversationContext = []) {
         try {
-            return await this.attributeExtractor.extractAllAttributesFromMessage(content, requiredAttributes);
+            return await this.aiAttributeExtractor.extractAllAttributesFromMessage(
+                content, 
+                requiredAttributes, 
+                conversationContext
+            );
         } catch (error) {
             logger.error(`Error extracting attributes from message:`, error.message);
             return {};
         }
     }
 
-    shouldCollectAttributes(lastMessages, missingAttributes) {
+    async shouldCollectAttributes(lastMessages, missingAttributes) {
         try {
-            return this.attributeExtractor.shouldCollectAttributes(lastMessages, missingAttributes);
+            return await this.aiAttributeExtractor.shouldCollectAttributes(lastMessages, missingAttributes);
         } catch (error) {
             logger.error(`Error in shouldCollectAttributes:`, error.message);
             return {
                 shouldCollect: false,
-                reason: 'error_in_timing_analysis',
+                reason: 'error_in_ai_timing_analysis',
                 attributesToCollect: [],
                 turnCount: 0
             };

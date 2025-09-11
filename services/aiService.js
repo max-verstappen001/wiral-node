@@ -13,7 +13,7 @@ class AIService {
             apiKey: config.OPENAI_API_KEY,
             model: config.EMBEDDING_MODEL,
         });
-        
+
         this.llm = new ChatOpenAI({
             apiKey: config.OPENAI_API_KEY,
             model: this.model,
@@ -39,16 +39,19 @@ IMPORTANT INSTRUCTIONS:
 4. After collecting an attribute, acknowledge it and proceed to help with their query or ask for the next missing attribute.
 5. Always ground your answers in the context below (knowledge base and conversation history).
 6. If the answer is not in the context, ask clarifying questions or suggest escalation.
-8. Never make up information or speculate.
-9. Greet the user by name if you know it.
-10. Be natural and conversational - avoid sounding robotic or overly formal.
+7. Never make up information or speculate.
+8. Be natural and conversational - avoid sounding robotic or overly formal.
+9. Continue the conversation naturally - avoid unnecessary greetings like "Welcome back" unless it's actually a new conversation after a long break.
+10. If the user just provided information you requested, acknowledge it and smoothly continue to the next step.
+11. If user says they don't know something (like "Idk"), don't keep pushing - acknowledge it and move on to help with what you have.
+12. Never be overly persistent about missing information - if user seems unsure, provide helpful context or proceed with available information.
 
 ATTRIBUTE STATUS:
 - Missing attributes that need collection: {missing_attributes}
 - Currently collected attributes: {current_attributes}
 
-CONVERSATION CONTEXT:
-The user may have just updated some information. Handle this naturally in your response.
+CONVERSATION FLOW:
+Analyze the recent conversation to understand the context and flow. Respond appropriately based on what just happened.
 `,
             ],
             [
@@ -65,7 +68,8 @@ Instructions:
 - If there are missing_attributes, prioritize collecting them before answering the main query
 - Be conversational and natural when asking for missing information
 - Ground your answer in the provided context
-- Greet the user appropriately if this seems like a new conversation
+- Continue the conversation naturally based on the recent context
+- If the user just provided requested information, acknowledge it and proceed to next steps
 - If multiple policies conflict, ask clarifying questions
 - Handle any information updates naturally without being repetitive`,
             ],
@@ -165,7 +169,7 @@ Instructions:
         const inputTokens = tokenUsage.promptTokens || 0;
         const outputTokens = tokenUsage.completionTokens || 0;
         const costUsd = (inputTokens / 1000) * modelPricing.input + (outputTokens / 1000) * modelPricing.output;
-        
+
         return {
             inputTokens,
             outputTokens,

@@ -29,7 +29,7 @@ class WebhookController {
 
             const { content, account_id, contact_id, conversationId, accountName } = webhookData;
 
-            logger.info(`Webhook received: ${JSON.stringify(req.body, null, 2)}`);
+            // logger.info(`Webhook received: ${JSON.stringify(req.body, null, 2)}`);
             logger.info(`Account ID: ${account_id}, Contact ID: ${contact_id}`);
 
             // Step 2: Validate client configuration
@@ -96,7 +96,7 @@ class WebhookController {
             const missingAttributes = this.attributeService.checkMissingAttributes(requiredAttributes, updatedAttributes);
             logger.info(`Missing attributes before extraction: ${missingAttributes.map(a => a.attribute_key).join(', ')}`);
 
-            const extractedFromMessage = await this.attributeService.extractAttributesFromMessage(content, requiredAttributes);
+            const extractedFromMessage = await this.attributeService.extractAttributesFromMessage(content, missingAttributes, lastMessages);
             logger.info(`Extracted attributes from message:`, extractedFromMessage);
 
             for (const [key, value] of Object.entries(extractedFromMessage)) {
@@ -117,7 +117,7 @@ class WebhookController {
             // Step 7: Smart attribute collection timing
             logger.info(`=== CHECKING ATTRIBUTE COLLECTION TIMING ===`);
             const currentMissingAttributes = this.attributeService.checkMissingAttributes(requiredAttributes, updatedAttributes);
-            const collectionDecision = this.attributeService.shouldCollectAttributes(lastMessages, currentMissingAttributes);
+            const collectionDecision = await this.attributeService.shouldCollectAttributes(lastMessages, currentMissingAttributes);
 
             logger.info(`Collection decision:`, collectionDecision);
 
