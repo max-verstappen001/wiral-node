@@ -9,7 +9,10 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "start:old": "node index.js",
-    "start:rag": "node index1.js"
+    "start:rag": "node index1.js",
+    "start:server1": "node server1.js",
+    "start:modular": "node server1-modular.js",
+    "dev:modular": "node --watch server1-modular.js"
   },
   "keywords": [],
   "author": "",
