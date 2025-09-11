@@ -13,13 +13,13 @@ class AttributeService {
         try {
             const client = await Client.findOne({ account_id: accountId, is_active: true });
             if (!client || !client.api_key) {
-                logger.error(`[DEBUG] No active client or api_key found for account ${accountId}`);
+                logger.error(`No active client or api_key found for account ${accountId}`);
                 return [];
             }
             
             return await this.chatwootService.getCustomAttributeDefinitions(accountId, client.api_key);
         } catch (error) {
-            logger.error(`[DEBUG] Error fetching attributes for account ${accountId}:`, error.message);
+            logger.error(`Error fetching attributes for account ${accountId}:`, error.message);
             return [];
         }
     }

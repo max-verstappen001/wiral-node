@@ -222,8 +222,6 @@ Should we collect missing attributes now?`
         try {
             logger.info(`=== AI ATTRIBUTE EXTRACTION ===`);
             logger.info(`Message: "${message}"`);
-            logger.info(`[DEBUG] RequiredAttributes count:`, requiredAttributes.length);
-            logger.info(`[DEBUG] RequiredAttributes:`, requiredAttributes);
 
             const attributeDefsText = requiredAttributes.map(attr => 
                 `- ${attr.attribute_key} (${attr.attribute_display_name}): ${attr.attribute_description || 'No description'}`
@@ -235,9 +233,6 @@ Should we collect missing attributes now?`
                 `${msg.message_type === 'incoming' ? 'User' : 'Agent'}: ${msg.content}`
             ).join('\n') || 'No previous context';
 
-            logger.info(`[DEBUG] Attribute definitions being sent to AI:`, attributeDefsText);
-            logger.info(`[DEBUG] Available keys:`, availableKeys);
-
             const response = await this.extractionChain.invoke({
                 message,
                 attribute_definitions: attributeDefsText,
@@ -245,12 +240,8 @@ Should we collect missing attributes now?`
                 conversation_context: contextText
             });
 
-            logger.info(`[DEBUG] Raw AI response for extraction:`, response);
-
             // Clean response if it has markdown formatting
-            const cleanedResponse = response.replace(/```json\s*|\s*```/g, '').trim();
-            logger.info(`[DEBUG] Cleaned AI response:`, cleanedResponse);
-            
+            const cleanedResponse = this.cleanJsonResponse(response);
             const extractedAttributes = JSON.parse(cleanedResponse);
             logger.info(`AI Extracted attributes:`, extractedAttributes);
 
@@ -380,6 +371,34 @@ Should we collect missing attributes now?`
         ];
         const lowerMessage = message.toLowerCase();
         return conversationalIndicators.some(indicator => lowerMessage.includes(indicator));
+    }
+
+    cleanJsonResponse(response) {
+        try {
+            // If response is already an object, stringify it first
+            if (typeof response === 'object') {
+                response = JSON.stringify(response);
+            }
+            
+            // Remove markdown code blocks if present
+            response = response.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+            
+            // Remove any leading/trailing whitespace
+            response = response.trim();
+            
+            // Find the first { and last } to extract just the JSON
+            const firstBrace = response.indexOf('{');
+            const lastBrace = response.lastIndexOf('}');
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                response = response.substring(firstBrace, lastBrace + 1);
+            }
+            
+            return response;
+        } catch (error) {
+            logger.error('Error cleaning JSON response:', error);
+            return response;
+        }
     }
 }
 

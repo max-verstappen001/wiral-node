@@ -96,6 +96,64 @@ class ChatwootService {
             || (body?.conversation?.messages?.[0]?.sender?.custom_attributes)
             || null;
     }
+
+    async addConversationTag(accountId, conversationId, tag, apiAccessToken) {
+        try {
+            await axios.post(
+                `${this.baseUrl}/api/v1/accounts/${accountId}/conversations/${conversationId}/labels`,
+                { labels: [tag] },
+                {
+                    headers: { 
+                        "Content-Type": "application/json", 
+                        api_access_token: apiAccessToken 
+                    },
+                    timeout: 10000,
+                }
+            );
+            logger.info(`Added tag "${tag}" to conversation ${conversationId}`);
+        } catch (error) {
+            logger.error(`Error adding tag to conversation ${conversationId}:`, error.message);
+            throw error;
+        }
+    }
+
+    async removeConversationTag(accountId, conversationId, tag, apiAccessToken) {
+        try {
+            await axios.delete(
+                `${this.baseUrl}/api/v1/accounts/${accountId}/conversations/${conversationId}/labels/${tag}`,
+                {
+                    headers: { 
+                        "Content-Type": "application/json", 
+                        api_access_token: apiAccessToken 
+                    },
+                    timeout: 10000,
+                }
+            );
+            logger.info(`Removed tag "${tag}" from conversation ${conversationId}`);
+        } catch (error) {
+            logger.error(`Error removing tag from conversation ${conversationId}:`, error.message);
+            // Don't throw - tag might not exist
+        }
+    }
+
+    async getConversationTags(accountId, conversationId, apiAccessToken) {
+        try {
+            const response = await axios.get(
+                `${this.baseUrl}/api/v1/accounts/${accountId}/conversations/${conversationId}`,
+                {
+                    headers: { 
+                        "Content-Type": "application/json", 
+                        api_access_token: apiAccessToken 
+                    },
+                    timeout: 10000,
+                }
+            );
+            return response.data?.labels || [];
+        } catch (error) {
+            logger.error(`Error fetching conversation tags for ${conversationId}:`, error.message);
+            return [];
+        }
+    }
 }
 
 export default ChatwootService;

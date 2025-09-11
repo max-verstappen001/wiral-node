@@ -4,6 +4,9 @@ import WebhookValidator from "../middleware/webhookValidator.js";
 import ChatwootService from "../services/chatwootService.js";
 import AttributeService from "../services/attributeService.js";
 import AIService from "../services/aiService.js";
+import LeadClassificationService from "../services/leadClassificationService.js";
+import SchedulingService from "../services/schedulingService.js";
+import GoogleCalendarService from "../services/googleCalendarService.js";
 import sharedLangfuseService from "../utils/langfuse.js";
 import { config } from "../config/appConfig.js";
 
@@ -12,6 +15,9 @@ class WebhookController {
         this.chatwootService = new ChatwootService();
         this.attributeService = new AttributeService();
         this.aiService = new AIService();
+        this.leadClassificationService = new LeadClassificationService();
+        this.schedulingService = new SchedulingService();
+        this.googleCalendarService = new GoogleCalendarService();
     }
 
     async handleChatwootWebhook(req, res) {
@@ -182,8 +188,6 @@ class WebhookController {
                 ]
             );
 
-            logger.info(`[DEBUG] AI reply generated: "${aiReply}"`);
-
             // Step 10: Handle completion and analytics
             const allAttributesCollected = currentMissingAttributes.length === 0;
             if (allAttributesCollected && Object.keys(updatedAttributes).length > 0) {
@@ -206,6 +210,100 @@ class WebhookController {
             logger.info(
                 `AI reply with smart attributes (tokens in/out/total ${costData.inputTokens}/${costData.outputTokens}/${costData.totalTokens}) ~ $${costData.costUsd.toFixed(6)}`
             );
+
+            // Step 10.5: Lead Classification (after meaningful conversation)
+            logger.info(`=== LEAD CLASSIFICATION ===`);
+            const shouldClassifyLead = await this.shouldClassifyLead(lastMessages, updatedAttributes, currentMissingAttributes);
+            
+            if (shouldClassifyLead) {
+                try {
+                    const classification = await this.leadClassificationService.classifyLead(
+                        lastMessages,
+                        updatedAttributes,
+                        currentMissingAttributes
+                    );
+                    
+                    logger.info(`Lead classified as: ${classification.category} (score: ${classification.score})`);
+                    
+                    // Add/update lead classification tag (without LEAD_ prefix)
+                    await this.chatwootService.addConversationTag(
+                        account_id, 
+                        conversationId, 
+                        classification.category, 
+                        api_access_token
+                    );
+                    
+                    // Remove previous lead tags if they exist
+                    const previousTags = ['HOT', 'WARM', 'COLD'];
+                    for (const tag of previousTags) {
+                        if (tag !== classification.category) {
+                            await this.chatwootService.removeConversationTag(
+                                account_id, 
+                                conversationId, 
+                                tag, 
+                                api_access_token
+                            );
+                        }
+                    }
+                    
+                    logger.info(`Lead classification tag ${classification.category} added to conversation ${conversationId}`);
+                } catch (error) {
+                    logger.error(`Lead classification failed:`, error);
+                }
+            } else {
+                logger.info(`Skipping lead classification - conversation too early or not enough data`);
+            }
+
+            // Step 10.6: Scheduling Detection and Calendar Booking
+            logger.info(`=== SCHEDULING DETECTION ===`);
+            try {
+                const schedulingResult = await this.schedulingService.detectSchedulingIntent(
+                    lastMessages,
+                    updatedAttributes
+                );
+                
+                logger.info(`Scheduling detection result:`, schedulingResult);
+                
+                if (schedulingResult.wantsToSchedule && schedulingResult.confidence > 0.85) {
+                    logger.info(`Customer wants to schedule - attempting to book calendar appointment`);
+                    
+                    const schedulingDetails = this.schedulingService.formatSchedulingDetails(
+                        schedulingResult.extractedDetails,
+                        updatedAttributes
+                    );
+                    
+                    // Book appointment in Google Calendar
+                    const bookingResult = await this.googleCalendarService.bookPickupAppointment({
+                        ...schedulingDetails,
+                        conversationId: conversationId
+                    });
+                    
+                    if (bookingResult.success) {
+                        logger.info(`Appointment booked successfully! Event ID: ${bookingResult.eventId}`);
+                        // Send confirmation message about the booking
+                        const confirmationMessage = `✅ Perfect! I've scheduled your pickup appointment for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. You should receive a calendar invitation shortly.`;
+                        await this.chatwootService.sendReply(account_id, conversationId, confirmationMessage, CHATWOOT_BOT_TOKEN);
+                        
+                    } else if (bookingResult.skipped) {
+                        logger.info(`Calendar booking skipped - Google Calendar not configured`);
+                        
+                        // Send confirmation message without calendar details
+                        const confirmationMessage = `✅ Great! I've noted your pickup request for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. Our team will contact you to confirm the appointment details.`;
+                        await this.chatwootService.sendReply(account_id, conversationId, confirmationMessage, CHATWOOT_BOT_TOKEN);
+                        
+                    } else {
+                        logger.error(`Failed to book appointment:`, bookingResult.error);
+                        
+                        // Send error message to customer
+                        const errorMessage = `I've noted your pickup request for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. Our team will contact you shortly to confirm the appointment details.`;
+                        await this.chatwootService.sendReply(account_id, conversationId, errorMessage, CHATWOOT_BOT_TOKEN);
+                    }
+                } else {
+                    logger.info(`No scheduling intent detected or confidence too low (${schedulingResult.confidence})`);
+                }
+            } catch (error) {
+                logger.error(`Scheduling detection/booking failed:`, error);
+            }
 
             // Step 11: Send reply to Chatwoot
             await this.chatwootService.sendReply(account_id, conversationId, aiReply, CHATWOOT_BOT_TOKEN);
@@ -270,6 +368,57 @@ class WebhookController {
         } catch (error) {
             logger.error("Error updating Langfuse trace:", error.message);
         }
+    }
+
+    /**
+     * Determines if lead classification should be performed based on conversation maturity
+     * @param {Array} lastMessages - Recent conversation messages
+     * @param {Object} currentAttributes - Current contact attributes
+     * @param {Array} missingAttributes - Attributes still missing
+     * @returns {boolean} Whether to perform lead classification
+     */
+    async shouldClassifyLead(lastMessages, currentAttributes, missingAttributes) {
+        // Don't classify very early conversations (less than 3 exchanges)
+        const messageCount = lastMessages.length;
+        if (messageCount < 6) { // 6 messages = 3 back-and-forth exchanges
+            return false;
+        }
+
+        // Always classify if all attributes are collected
+        if (missingAttributes.length === 0) {
+            return true;
+        }
+
+        // Classify if we have meaningful conversation (more than 8 messages)
+        if (messageCount >= 8) {
+            return true;
+        }
+
+        // Classify if conversation shows high engagement patterns
+        const customerMessages = lastMessages.filter(msg => msg.message_type === 'incoming');
+        if (customerMessages.length >= 4) {
+            // Check for engagement indicators
+            const hasQuestions = customerMessages.some(msg => 
+                msg.content.includes('?') || 
+                msg.content.toLowerCase().includes('when') ||
+                msg.content.toLowerCase().includes('how') ||
+                msg.content.toLowerCase().includes('what')
+            );
+            
+            const hasUrgency = customerMessages.some(msg =>
+                msg.content.toLowerCase().includes('urgent') ||
+                msg.content.toLowerCase().includes('asap') ||
+                msg.content.toLowerCase().includes('quickly') ||
+                msg.content.toLowerCase().includes('need') ||
+                msg.content.toLowerCase().includes('immediately')
+            );
+
+            if (hasQuestions || hasUrgency) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

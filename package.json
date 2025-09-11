@@ -33,6 +33,7 @@
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "faiss-node": "^0.5.1",
+    "googleapis": "^159.0.0",
     "langchain": "^0.3.33",
     "langfuse": "^3.38.5",
     "mongodb": "^6.19.0",
