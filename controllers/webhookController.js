@@ -8,6 +8,7 @@ import LeadClassificationService from "../services/leadClassificationService.js"
 import SchedulingService from "../services/schedulingService.js";
 import GoogleCalendarService from "../services/googleCalendarService.js";
 import FollowUpReminderService from "../services/followUpReminderService.js";
+import BookingConfirmationService from "../services/bookingConfirmationService.js";
 import sharedLangfuseService from "../utils/langfuse.js";
 import { config } from "../config/appConfig.js";
 
@@ -20,6 +21,7 @@ class WebhookController {
         this.schedulingService = new SchedulingService();
         this.googleCalendarService = new GoogleCalendarService();
         this.followUpReminderService = new FollowUpReminderService();
+        this.bookingConfirmationService = new BookingConfirmationService();
     }
 
     async handleChatwootWebhook(req, res) {
@@ -213,105 +215,153 @@ class WebhookController {
                 `AI reply with smart attributes (tokens in/out/total ${costData.inputTokens}/${costData.outputTokens}/${costData.totalTokens}) ~ $${costData.costUsd.toFixed(6)}`
             );
 
-            // Step 10.5: Lead Classification (after meaningful conversation)
-            logger.info(`=== LEAD CLASSIFICATION ===`);
-            const shouldClassifyLead = await this.shouldClassifyLead(lastMessages, updatedAttributes, currentMissingAttributes);
+            // Step 10.6: Scheduling Detection and Calendar Booking
+            logger.info(`=== SCHEDULING DETECTION ===`);
+            let schedulingResult = null;
+            let skipRegularReply = false; // Flag to control regular AI reply
+            let skipLeadClassification = false; // Flag to control lead classification
+            
+            try {
+                // First check if customer is confirming a pending booking
+                const pendingBooking = this.bookingConfirmationService.getPendingBooking(conversationId);
+                
+                if (pendingBooking && pendingBooking.status === 'pending') {
+                    logger.info(`Found pending booking for conversation ${conversationId}, checking for confirmation`);
+                    
+                    const confirmationResult = await this.bookingConfirmationService.detectConfirmation(
+                        lastMessages,
+                        updatedAttributes
+                    );
+                    
+                    logger.info(`Confirmation detection result:`, confirmationResult);
+                    
+                    if (confirmationResult.isConfirmation && confirmationResult.confidence >= 0.8) {
+                        logger.info(`Customer confirmed booking - proceeding with calendar appointment`);
+                        
+                        const schedulingDetails = pendingBooking.details;
+                        
+                        // Book appointment in Google Calendar
+                        const bookingResult = await this.googleCalendarService.bookPickupAppointment({
+                            ...schedulingDetails,
+                            conversationId: conversationId
+                        });
+                        
+                        if (bookingResult.success) {
+                            logger.info(`Appointment booked successfully! Event ID: ${bookingResult.eventId}`);
+                            const confirmationMessage = `✅ Perfect! I've scheduled your pickup appointment for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. You should receive a calendar invitation shortly.`;
+                            await this.chatwootService.sendReply(account_id, conversationId, confirmationMessage, CHATWOOT_BOT_TOKEN);
+                            
+                            // Immediately classify as BOOKED since appointment was successfully created
+                            await this.setLeadClassification(account_id, conversationId, api_access_token, 'booked', 1.0, 'Customer successfully booked calendar appointment');
+                            
+                        } else if (bookingResult.skipped) {
+                            logger.info(`Calendar booking skipped - Google Calendar not configured`);
+                            const confirmationMessage = `✅ Great! I've confirmed your pickup request for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. Our team will contact you to finalize the appointment details.`;
+                            await this.chatwootService.sendReply(account_id, conversationId, confirmationMessage, CHATWOOT_BOT_TOKEN);
+                            
+                            // Classify as BOOKED even without calendar integration
+                            await this.setLeadClassification(account_id, conversationId, api_access_token, 'booked', 0.95, 'Customer confirmed pickup appointment');
+                            
+                        } else {
+                            logger.error(`Failed to book appointment:`, bookingResult.error);
+                            const errorMessage = `✅ I've confirmed your pickup request for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. Our team will contact you shortly to finalize the appointment details.`;
+                            await this.chatwootService.sendReply(account_id, conversationId, errorMessage, CHATWOOT_BOT_TOKEN);
+                            
+                            // Still classify as BOOKED since customer confirmed intent
+                            await this.setLeadClassification(account_id, conversationId, api_access_token, 'booked', 0.9, 'Customer confirmed pickup appointment (calendar booking failed)');
+                        }
+                        
+                        // Clear the pending booking
+                        this.bookingConfirmationService.clearBooking(conversationId);
+                        skipRegularReply = true; // Skip regular AI reply since we sent booking confirmation
+                        skipLeadClassification = true; // Skip lead classification since we already set it to "booked"
+                        
+                    } else if (confirmationResult.isRejection && confirmationResult.confidence >= 0.8) {
+                        logger.info(`Customer rejected booking - clearing pending booking`);
+                        this.bookingConfirmationService.clearBooking(conversationId);
+                        // Let regular AI reply handle the rejection
+                        
+                    } else {
+                        logger.info(`No clear confirmation or rejection detected, keeping booking pending`);
+                        // Let regular AI reply handle the response
+                    }
+                    
+                } else {
+                    // No pending booking, check for new scheduling intent
+                    schedulingResult = await this.schedulingService.detectSchedulingIntent(
+                        lastMessages,
+                        updatedAttributes
+                    );
+                    
+                    logger.info(`Scheduling detection result:`, schedulingResult);
+                    
+                    if (schedulingResult.wantsToSchedule && schedulingResult.confidence >= 0.9) {
+                        logger.info(`Customer wants to schedule - sending confirmation summary`);
+                        
+                        const schedulingDetails = this.schedulingService.formatSchedulingDetails(
+                            schedulingResult.extractedDetails,
+                            updatedAttributes
+                        );
+                        
+                        // Generate booking summary for confirmation
+                        const bookingSummary = this.bookingConfirmationService.generateBookingSummary(schedulingDetails);
+                        
+                        // Set pending confirmation
+                        this.bookingConfirmationService.setPendingConfirmation(conversationId, schedulingDetails);
+                        
+                        // Send confirmation message
+                        await this.chatwootService.sendReply(account_id, conversationId, bookingSummary, CHATWOOT_BOT_TOKEN);
+                        skipRegularReply = true; // Skip regular AI reply since we sent booking summary
+                        
+                    } else {
+                        logger.info(`No scheduling intent detected or confidence too low (${schedulingResult?.confidence})`);
+                    }
+                }
+            } catch (error) {
+                logger.error(`Scheduling detection/booking failed:`, error);
+                schedulingResult = null;
+            }
+
+            // Step 10.5: Lead Classification (only if not already booked)
+            if (!skipLeadClassification) {
+                logger.info(`=== LEAD CLASSIFICATION ===`);
+                const shouldClassifyLead = await this.shouldClassifyLead(lastMessages, updatedAttributes, currentMissingAttributes);
             
             if (shouldClassifyLead) {
                 try {
-                    const classification = await this.leadClassificationService.classifyLead(
-                        lastMessages,
-                        updatedAttributes,
-                        currentMissingAttributes
-                    );
+                    // Skip classification if customer was just marked as booked
+                    const pendingBooking = this.bookingConfirmationService.getPendingBooking(conversationId);
+                    const wasJustBooked = schedulingResult && schedulingResult.wantsToSchedule && schedulingResult.confidence >= 0.9 && !pendingBooking;
                     
-                    logger.info(`Lead classified as: ${classification.category} (score: ${classification.score})`);
-                    
-                    // Add/update lead classification tag (without LEAD_ prefix)
-                    await this.chatwootService.addConversationTag(
-                        account_id, 
-                        conversationId, 
-                        classification.category, 
-                        api_access_token
-                    );
-                    
-                    // Remove previous lead tags if they exist
-                    const previousTags = ['HOT', 'WARM', 'COLD'];
-                    for (const tag of previousTags) {
-                        if (tag !== classification.category) {
-                            await this.chatwootService.removeConversationTag(
-                                account_id, 
-                                conversationId, 
-                                tag, 
-                                api_access_token
-                            );
-                        }
+                    if (!wasJustBooked) {
+                        const classification = await this.leadClassificationService.classifyLead(
+                            lastMessages,
+                            updatedAttributes,
+                            currentMissingAttributes,
+                            false // No direct booking in this flow
+                        );
+                        
+                        logger.info(`Lead classified as: ${classification.category} (score: ${classification.score})`);
+                        
+                        await this.setLeadClassification(account_id, conversationId, api_access_token, classification.category, classification.score, classification.reasoning);
+                    } else {
+                        logger.info(`Skipping lead classification - customer was just booked`);
                     }
-                    
-                    logger.info(`Lead classification tag ${classification.category} added to conversation ${conversationId}`);
                 } catch (error) {
                     logger.error(`Lead classification failed:`, error);
                 }
             } else {
                 logger.info(`Skipping lead classification - conversation too early or not enough data`);
             }
-
-            // Step 10.6: Scheduling Detection and Calendar Booking
-            logger.info(`=== SCHEDULING DETECTION ===`);
-            let schedulingResult = null;
-            try {
-                schedulingResult = await this.schedulingService.detectSchedulingIntent(
-                    lastMessages,
-                    updatedAttributes
-                );
-                
-                logger.info(`Scheduling detection result:`, schedulingResult);
-                
-                if (schedulingResult.wantsToSchedule && schedulingResult.confidence > 0.85) {
-                    logger.info(`Customer wants to schedule - attempting to book calendar appointment`);
-                    
-                    const schedulingDetails = this.schedulingService.formatSchedulingDetails(
-                        schedulingResult.extractedDetails,
-                        updatedAttributes
-                    );
-                    
-                    // Book appointment in Google Calendar
-                    const bookingResult = await this.googleCalendarService.bookPickupAppointment({
-                        ...schedulingDetails,
-                        conversationId: conversationId
-                    });
-                    
-                    if (bookingResult.success) {
-                        logger.info(`Appointment booked successfully! Event ID: ${bookingResult.eventId}`);
-                        // Send confirmation message about the booking
-                        const confirmationMessage = `✅ Perfect! I've scheduled your pickup appointment for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. You should receive a calendar invitation shortly.`;
-                        await this.chatwootService.sendReply(account_id, conversationId, confirmationMessage, CHATWOOT_BOT_TOKEN);
-                        
-                    } else if (bookingResult.skipped) {
-                        logger.info(`Calendar booking skipped - Google Calendar not configured`);
-                        
-                        // Send confirmation message without calendar details
-                        const confirmationMessage = `✅ Great! I've noted your pickup request for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. Our team will contact you to confirm the appointment details.`;
-                        await this.chatwootService.sendReply(account_id, conversationId, confirmationMessage, CHATWOOT_BOT_TOKEN);
-                        
-                    } else {
-                        logger.error(`Failed to book appointment:`, bookingResult.error);
-                        
-                        // Send error message to customer
-                        const errorMessage = `I've noted your pickup request for ${schedulingDetails.pickupDate} at ${schedulingDetails.pickupTime}. Our team will contact you shortly to confirm the appointment details.`;
-                        await this.chatwootService.sendReply(account_id, conversationId, errorMessage, CHATWOOT_BOT_TOKEN);
-                    }
-                } else {
-                    logger.info(`No scheduling intent detected or confidence too low (${schedulingResult.confidence})`);
-                }
-            } catch (error) {
-                logger.error(`Scheduling detection/booking failed:`, error);
-                schedulingResult = null; // Ensure it's null on error
+            } else {
+                logger.info(`Skipping lead classification - customer was just classified as booked`);
             }
 
-            // Step 11: Send reply to Chatwoot
-            await this.chatwootService.sendReply(account_id, conversationId, aiReply, CHATWOOT_BOT_TOKEN);
-            logger.info(`Reply sent back to Chatwoot conversation ${conversationId}`);
+            // Step 11: Send reply to Chatwoot (only if not skipped)
+            if (!skipRegularReply) {
+                await this.chatwootService.sendReply(account_id, conversationId, aiReply, CHATWOOT_BOT_TOKEN);
+                logger.info(`Reply sent back to Chatwoot conversation ${conversationId}`);
+            }
 
             // Step 12: Handle follow-up reminders
             await this.handleFollowUpReminder(conversationId, account_id, contact_id, api_access_token, {
@@ -319,7 +369,7 @@ class WebhookController {
                 lastMessages,
                 updatedAttributes,
                 currentMissingAttributes,
-                hasScheduling: schedulingResult?.confidence >= 0.85 || false,
+                hasScheduling: schedulingResult?.confidence >= 0.9 || false,
                 messageCount: lastMessages.length,
                 sender_type: 'contact' // This is a customer message since we're processing it
             });
@@ -463,6 +513,46 @@ class WebhookController {
         }
 
         return false;
+    }
+
+    /**
+     * Set lead classification and manage tags
+     * @param {string} accountId - Account ID
+     * @param {string} conversationId - Conversation ID
+     * @param {string} apiToken - API access token
+     * @param {string} category - Classification category
+     * @param {number} score - Classification score
+     * @param {string} reasoning - Classification reasoning
+     */
+    async setLeadClassification(accountId, conversationId, apiToken, category, score, reasoning) {
+        try {
+            logger.info(`Setting lead classification: ${category} (score: ${score}) - ${reasoning}`);
+            
+            // Add/update lead classification tag
+            await this.chatwootService.addConversationTag(
+                accountId, 
+                conversationId, 
+                category.toLowerCase(), 
+                apiToken
+            );
+            
+            // Remove previous lead tags if they exist
+            const previousTags = ['hot', 'warm', 'cold', 'rfq', 'booked'];
+            for (const tag of previousTags) {
+                if (tag.toLowerCase() !== category.toLowerCase()) {
+                    await this.chatwootService.removeConversationTag(
+                        accountId, 
+                        conversationId, 
+                        tag, 
+                        apiToken
+                    );
+                }
+            }
+            
+            logger.info(`Lead classification tag ${category.toLowerCase()} added to conversation ${conversationId}`);
+        } catch (error) {
+            logger.error(`Failed to set lead classification:`, error);
+        }
     }
 }
 

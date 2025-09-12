@@ -132,7 +132,97 @@ class AttributeService {
     }
 
     extractContactAttributesFromWebhook(body) {
-        return this.chatwootService.extractContactAttributesFromWebhook(body);
+        // Get the base contact attributes
+        let contactAttributes = this.chatwootService.extractContactAttributesFromWebhook(body);
+        
+        // If no attributes exist, initialize empty object
+        if (!contactAttributes || typeof contactAttributes !== 'object') {
+            contactAttributes = {};
+        }
+
+        // Auto-populate contact number from WhatsApp if channel is WhatsApp and contact number is missing
+        const channelType = body?.inbox?.channel_type || body?.conversation?.inbox?.channel_type;
+        const isWhatsApp = channelType === 'Channel::Whatsapp' || 
+                          (body?.inbox?.name && body.inbox.name.toLowerCase().includes('whatsapp'));
+
+        if (isWhatsApp && !contactAttributes.lead_contact_number) {
+            // Extract phone number from WhatsApp contact
+            const phoneNumber = this.extractWhatsAppPhoneNumber(body);
+            if (phoneNumber) {
+                contactAttributes.lead_contact_number = phoneNumber;
+                logger.info(`Auto-populated contact number from WhatsApp: ${phoneNumber}`);
+            }
+        }
+
+        return contactAttributes;
+    }
+
+    /**
+     * Extract phone number from WhatsApp webhook data
+     */
+    extractWhatsAppPhoneNumber(body) {
+        try {
+            // Method 1: From conversation contact identifier (most reliable)
+            const contactIdentifier = body?.conversation?.meta?.sender?.identifier || 
+                                    body?.sender?.identifier ||
+                                    body?.conversation?.contact_inbox?.source_id;
+
+            if (contactIdentifier) {
+                // WhatsApp identifiers are usually in format like "918234567890" or "+918234567890"
+                const cleanNumber = this.formatPhoneNumber(contactIdentifier);
+                if (cleanNumber) {
+                    return cleanNumber;
+                }
+            }
+
+            // Method 2: From contact phone number field
+            const phoneNumber = body?.conversation?.meta?.sender?.phone_number ||
+                              body?.sender?.phone_number ||
+                              body?.conversation?.contact_inbox?.contact?.phone_number;
+
+            if (phoneNumber) {
+                return this.formatPhoneNumber(phoneNumber);
+            }
+
+            // Method 3: From contact name if it contains a number
+            const contactName = body?.conversation?.meta?.sender?.name ||
+                              body?.sender?.name ||
+                              body?.conversation?.contact_inbox?.contact?.name;
+
+            if (contactName && /^\+?\d+$/.test(contactName.trim())) {
+                return this.formatPhoneNumber(contactName);
+            }
+
+            logger.info('Could not extract phone number from WhatsApp webhook data');
+            return null;
+
+        } catch (error) {
+            logger.error('Error extracting WhatsApp phone number:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Format phone number to a consistent format
+     */
+    formatPhoneNumber(phoneNumber) {
+        if (!phoneNumber) return null;
+
+        // Remove all non-digit characters except +
+        let cleaned = phoneNumber.toString().replace(/[^\d+]/g, '');
+
+        // If it starts with +, keep it, otherwise add +
+        if (!cleaned.startsWith('+')) {
+            cleaned = '+' + cleaned;
+        }
+
+        // Basic validation: should have at least 10 digits after country code
+        const digitsOnly = cleaned.replace(/\D/g, '');
+        if (digitsOnly.length >= 10) {
+            return cleaned;
+        }
+
+        return null;
     }
 }
 

@@ -16,9 +16,20 @@ class LeadClassificationService {
 You are an expert lead classifier. Analyze the conversation and classify the lead based on engagement level and purchase intent.
 
 Classification Guidelines:
-- HOT: Strong purchase intent, ready to buy/commit, asking for quotes/pricing, providing detailed requirements, showing urgency, requesting immediate action
-- WARM: Moderate interest, asking specific questions about products/services, comparing options, in evaluation phase, seeking more information before deciding
+
+PRIMARY CLASSIFICATIONS (based on engagement level):
+- HOT: Strong purchase intent, ready to buy/commit, showing urgency, requesting immediate action, providing detailed requirements for service
+- WARM: Moderate interest, asking specific questions about products/services, comparing options, in evaluation phase, seeking more information before deciding  
 - COLD: Initial inquiry, general questions, browsing, no immediate need expressed, minimal engagement
+
+SPECIAL OVERRIDE:
+- RFQ (Request for Quote): ONLY if customer has explicitly asked for pricing, quotes, cost estimates, or any pricing-related information. Look for keywords like "price", "cost", "quote", "how much", "fees", "rate", "pricing", "estimate", etc.
+
+PRIORITY LOGIC:
+1. If customer asks for pricing/quotes → classify as RFQ
+2. Otherwise, classify based on engagement level → HOT, WARM, or COLD
+
+NOTE: BOOKED classification is handled separately when calendar appointments are actually created.
 
 Conversation Messages:
 {messages}
@@ -28,11 +39,13 @@ Current Customer Attributes:
 
 Missing Information: {missingInfo}
 
-Based on the conversation flow, customer engagement level, questions asked, and information provided, classify this lead appropriately.
+Has Scheduled Appointment: {hasScheduledAppointment}
+
+IMPORTANT: Focus on the conversation content to determine if this is an RFQ (pricing request) or normal engagement classification.
 
 Return your response in this exact JSON format:
 {{
-  "category": "HOT|WARM|COLD",
+  "category": "RFQ|HOT|WARM|COLD",
   "score": 0.85,
   "reasoning": "Brief explanation of the classification"
 }}
@@ -45,7 +58,7 @@ Return your response in this exact JSON format:
         ]);
     }
 
-    async classifyLead(messages, currentAttributes = {}, missingAttributes = []) {
+    async classifyLead(messages, currentAttributes = {}, missingAttributes = [], hasScheduledAppointment = false) {
         try {
             // Format messages for analysis
             const formattedMessages = messages.map(msg => 
@@ -65,7 +78,8 @@ Return your response in this exact JSON format:
             const result = await this.classificationChain.invoke({
                 messages: formattedMessages,
                 attributes: attributesText,
-                missingInfo: missingInfoText
+                missingInfo: missingInfoText,
+                hasScheduledAppointment: hasScheduledAppointment.toString()
             });
 
             // Validate and clean the result
@@ -79,7 +93,7 @@ Return your response in this exact JSON format:
             }
 
             // Ensure category is lowercase and valid
-            const validCategories = ['hot', 'warm', 'cold'];
+            const validCategories = ['rfq', 'hot', 'warm', 'cold'];
             const category = result.category.toString().toLowerCase();
             
             if (!validCategories.includes(category)) {

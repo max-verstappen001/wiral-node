@@ -61,11 +61,11 @@ class GoogleCalendarService {
                 }),
                 start: {
                     dateTime: startDateTime.toISOString(),
-                    timeZone: process.env.TIMEZONE || 'UTC',
+                    timeZone: 'Asia/Qatar',
                 },
                 end: {
                     dateTime: endDateTime.toISOString(),
-                    timeZone: process.env.TIMEZONE || 'UTC',
+                    timeZone: 'Asia/Qatar',
                 },
                 location: pickupAddress,
                 attendees: [], // No email collection - appointments are internal only
@@ -78,7 +78,7 @@ class GoogleCalendarService {
             };
 
             // Insert event into calendar
-            const calendarId = "11c9b4e1b9e78db0f5378689c972a0d7f2ef281f05af5356bfdebd64e61b22af@group.calendar.google.com";
+            const calendarId = "4224b23650e90e3cfb324e6e5bcc87fa2d9ab188d5f1f3eb4f92ff07beee01ca@group.calendar.google.com";
             const response = await this.calendar.events.insert({
                 calendarId: calendarId,
                 resource: event,
@@ -110,7 +110,9 @@ class GoogleCalendarService {
 
     parseDateTime(dateStr, timeStr) {
         try {
-            let date = new Date();
+            // Get current date in Qatar timezone for reference
+            const qatarDate = new Date().toLocaleString("en-US", {timeZone: "Asia/Qatar"});
+            let date = new Date(qatarDate);
             const currentYear = new Date().getFullYear();
             
             // Normalize common abbreviations first
@@ -118,11 +120,11 @@ class GoogleCalendarService {
                 .replace(/\b(tmrw|tmr|2morrow)\b/g, 'tomorrow')
                 .replace(/\b(tdy)\b/g, 'today');
             
-            // Handle relative dates
+            // Handle relative dates (in Qatar timezone)
             if (normalizedDateStr.includes('today')) {
-                date = new Date();
+                date = new Date(qatarDate);
             } else if (normalizedDateStr.includes('tomorrow')) {
-                date = new Date();
+                date = new Date(qatarDate);
                 date.setDate(date.getDate() + 1);
             } else if (dateStr && dateStr !== 'Not specified') {
                 // Try parsing the date - if no year specified, it defaults to current year
@@ -135,7 +137,7 @@ class GoogleCalendarService {
                     if (!isNaN(fallbackDate.getTime()) && fallbackDate.getFullYear() >= currentYear) {
                         date = fallbackDate;
                     }
-                    // Otherwise keep default (today)
+                    // Otherwise keep default (today in Qatar)
                 }
             }
 
@@ -158,8 +160,9 @@ class GoogleCalendarService {
 
         } catch (error) {
             logger.error('Error parsing date/time:', error);
-            // Return next hour as fallback
-            const fallback = new Date();
+            // Return next hour as fallback (in Qatar timezone)
+            const qatarNow = new Date().toLocaleString("en-US", {timeZone: "Asia/Qatar"});
+            const fallback = new Date(qatarNow);
             fallback.setHours(fallback.getHours() + 1, 0, 0, 0);
             return fallback;
         }
@@ -197,7 +200,7 @@ Conversation ID: ${conversationId}
                 throw new Error('Google Calendar not initialized');
             }
 
-            const calendarId = "11c9b4e1b9e78db0f5378689c972a0d7f2ef281f05af5356bfdebd64e61b22af@group.calendar.google.com";
+            const calendarId = "4224b23650e90e3cfb324e6e5bcc87fa2d9ab188d5f1f3eb4f92ff07beee01ca@group.calendar.google.com";
             
             // Get existing event
             const existingEvent = await this.calendar.events.get({
@@ -240,7 +243,7 @@ Conversation ID: ${conversationId}
                 throw new Error('Google Calendar not initialized');
             }
 
-            const calendarId = "11c9b4e1b9e78db0f5378689c972a0d7f2ef281f05af5356bfdebd64e61b22af@group.calendar.google.com";
+            const calendarId = "4224b23650e90e3cfb324e6e5bcc87fa2d9ab188d5f1f3eb4f92ff07beee01ca@group.calendar.google.com";
             
             await this.calendar.events.delete({
                 calendarId: calendarId,

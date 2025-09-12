@@ -17,6 +17,9 @@ You are an expert at detecting scheduling requests and extracting appointment de
 
 Analyze the conversation to determine if the customer wants to schedule a pickup/appointment and extract relevant details.
 
+CURRENT DATE REFERENCE: {currentDate}
+Today is: {currentDate}
+
 Conversation Messages:
 {messages}
 
@@ -33,6 +36,11 @@ DO NOT trigger scheduling for:
 - Information gathering messages
 - Initial contact messages
 - Messages without clear scheduling intent
+- Logistics/shipping details: weight ("100kg", "heavy"), containers ("container", "box"), cargo descriptions ("fragile", "electronics")
+- Pricing inquiries ("how much", "cost", "price", "fees")
+- Providing information (addresses, phone numbers, cargo details)
+
+CRITICAL: Weight, container, and cargo specifications are NOT scheduling requests.
 
 Look for:
 1. Intent to schedule (phrases like "schedule pickup", "book appointment", "when can you come", "arrange collection", etc.)
@@ -40,16 +48,19 @@ Look for:
 3. Location/address details
 4. Any scheduling preferences
 
-IMPORTANT: When extracting dates, always assume the CURRENT YEAR (${new Date().getFullYear()}) unless explicitly stated otherwise.
+IMPORTANT: When extracting dates, use the CURRENT DATE ({currentDate}) as reference:
+- If customer says "today", use {currentDate}
+- If customer says "tomorrow" or "tmrw", use the day after {currentDate}
+- If customer says "Monday" or "next week", calculate from {currentDate}
+- Always assume the CURRENT YEAR (${new Date().getFullYear()}) unless explicitly stated otherwise.
 - "25 sep" should become "September 25, ${new Date().getFullYear()}"
-- "Monday next week" should be calculated from today's date in ${new Date().getFullYear()}
-- "tomorrow" means tomorrow in ${new Date().getFullYear()}
+- Numbers like "22", "23" = day of current month from {currentDate}
 
 CRITICAL: Handle common abbreviations correctly:
-- "tmrw", "tmr", "2morrow" = "tomorrow"
-- "today", "tdy" = "today"
-- "next week", "nxt week" = next week
-- Numbers like "22", "23" = day of current month
+- "tmrw", "tmr", "2morrow" = "tomorrow" (day after {currentDate})
+- "today", "tdy" = "today" ({currentDate})
+- "next week", "nxt week" = next week from {currentDate}
+- When only day number is given (like "22"), assume current month and year from {currentDate}
 
 Return your response in this exact JSON format:
 {{
@@ -75,6 +86,15 @@ Return your response in this exact JSON format:
 
     async detectSchedulingIntent(messages, currentAttributes = {}) {
         try {
+            // Get current date for reference (Qatar timezone)
+            const currentDate = new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: 'Asia/Qatar'
+            });
+
             // Format messages for analysis
             const formattedMessages = messages.slice(-10).map(msg => 
                 `${msg.sender_type || 'User'}: ${msg.content}`
@@ -87,6 +107,7 @@ Return your response in this exact JSON format:
                 .join(', ') || 'None provided yet';
 
             const result = await this.schedulingChain.invoke({
+                currentDate: currentDate,
                 messages: formattedMessages,
                 attributes: attributesText
             });
