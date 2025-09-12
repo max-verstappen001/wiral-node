@@ -7,6 +7,7 @@ import AIService from "../services/aiService.js";
 import LeadClassificationService from "../services/leadClassificationService.js";
 import SchedulingService from "../services/schedulingService.js";
 import GoogleCalendarService from "../services/googleCalendarService.js";
+import FollowUpReminderService from "../services/followUpReminderService.js";
 import sharedLangfuseService from "../utils/langfuse.js";
 import { config } from "../config/appConfig.js";
 
@@ -18,6 +19,7 @@ class WebhookController {
         this.leadClassificationService = new LeadClassificationService();
         this.schedulingService = new SchedulingService();
         this.googleCalendarService = new GoogleCalendarService();
+        this.followUpReminderService = new FollowUpReminderService();
     }
 
     async handleChatwootWebhook(req, res) {
@@ -256,8 +258,9 @@ class WebhookController {
 
             // Step 10.6: Scheduling Detection and Calendar Booking
             logger.info(`=== SCHEDULING DETECTION ===`);
+            let schedulingResult = null;
             try {
-                const schedulingResult = await this.schedulingService.detectSchedulingIntent(
+                schedulingResult = await this.schedulingService.detectSchedulingIntent(
                     lastMessages,
                     updatedAttributes
                 );
@@ -303,11 +306,23 @@ class WebhookController {
                 }
             } catch (error) {
                 logger.error(`Scheduling detection/booking failed:`, error);
+                schedulingResult = null; // Ensure it's null on error
             }
 
             // Step 11: Send reply to Chatwoot
             await this.chatwootService.sendReply(account_id, conversationId, aiReply, CHATWOOT_BOT_TOKEN);
             logger.info(`Reply sent back to Chatwoot conversation ${conversationId}`);
+
+            // Step 12: Handle follow-up reminders
+            await this.handleFollowUpReminder(conversationId, account_id, contact_id, api_access_token, {
+                content,
+                lastMessages,
+                updatedAttributes,
+                currentMissingAttributes,
+                hasScheduling: schedulingResult?.confidence >= 0.85 || false,
+                messageCount: lastMessages.length,
+                sender_type: 'contact' // This is a customer message since we're processing it
+            });
 
             res.sendStatus(200);
 
@@ -321,6 +336,35 @@ class WebhookController {
                 logger.error("Error: " + err.message);
             }
             res.sendStatus(500);
+        }
+    }
+
+    async handleFollowUpReminder(conversationId, accountId, contactId, apiToken, messageData) {
+        try {
+            // Clear any existing reminder since user sent a new message
+            this.followUpReminderService.clearReminder(conversationId);
+
+            // Prepare conversation data for reminder decision
+            const conversationData = {
+                contact: { id: contactId },
+                lastMessage: { created_at: new Date() },
+                attributes: messageData.updatedAttributes || {},
+                hasScheduling: messageData.hasScheduling || false,
+                messageCount: messageData.messageCount || 1
+            };
+
+            // Enhanced reminder service with actual conversation data
+            await this.followUpReminderService.updateConversationData(conversationId, conversationData);
+
+            // Schedule new reminder if appropriate
+            const shouldSchedule = this.followUpReminderService.shouldScheduleNewReminder(messageData);
+            if (shouldSchedule) {
+                this.followUpReminderService.scheduleReminder(conversationId, accountId, contactId, apiToken);
+            }
+
+            logger.info(`Follow-up reminder handling completed for conversation ${conversationId}`);
+        } catch (error) {
+            logger.error(`Error handling follow-up reminder for conversation ${conversationId}:`, error);
         }
     }
 
